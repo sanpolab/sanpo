@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>さんぽ路面計</title>
+<meta name="description" content="愛犬の散歩に安全な時間を、路面温度と暑さ・寒さから判定。近所のわんこの写真も見られます。">
+<meta name="theme-color" content="#1E6C88">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="さんぽ路面計">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAFHklEQVR4Xu3dUY6bMBSFYabqOjob7Dx3C53nrrA7qSokFCVMYnyu8T2X/3sGB/AfQxNl+vbj5+8F6PWtd0fgPwKChIAgISBICAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICJLv0t5u/v75dXfI7x+f4kk8jrksAcO6eLvCn7jbnWO9pJfD6nXmVz+gl9O8aZ/v9jHLr0bFn4EOzXTjxo2bbY5u76VyQB0z93KXlxvs6tvLQtmAuufsyY7dYy6LtG9mNQNSZrrwZI9QMCCxntXjIPqw+ggJFQxohKi5jxonj2oBBc5Q4FCFVQsIJysVUPiasQ4YO2zsaNOVCgjnIyBI6nwX5nVraP/eLTlWIEgICBICgoSAICEgSAgIEgKChIAgISBI6gQ06LPdEcOOGHOWOgFhiuy/TB3xW9LM7M436ZepLd+M7t4IWnZst71E4LDdh72743TpVqD2qVq3zHlZ27mfb65noParubnbJbCnwKG+op/vdIkC6riaq+4d20XFdDtO92F37zhCloDEi3K7e8hkPw6iDxtSz2nvmUYpAhLrebym4mSLu78Ufr4TpQhohO4InuzYPWaBh/2vzA8o5O24u7B3zPfLXV5usCvw5nUr8NJ1mxxQ+CVQ/lHWGEfjZptB9SR5GJoc0Aka57txs9X7x2fL9o2bWUv3QeIITz5QbungK+u+u4uoMqyXmV9lhN+/du8aeZQ83/q3MAxFQJBMC2jcen7OlxtHVT3faQGhBgKChIAgISBICAgSAoKEgCAhIEgICJJpAQ39vnro4H2GHtLQwZ+bFhBqICBIZgY0aOEdNKxu0IENGrbRzIBQAAFBMjmg8OU3fMBY4YcXPuBRkwOK/cXd9KvZIvAgA4fqNj8gWEsRUMg7KWSQc4QcasgguhQB6TeyJFeznXjA4u6BsgSkNJTnah7SfdjdO44w84eFu47+eiHwah566ajXPfSiyttskHQBrVouqz6FLa/SSDyYliMRX2KQpAFtHq+sfh1bZqubeHgjzneo7AEFGtrNI7EkF5cI6OR0bpXPqHhAE9O5SEZlA0qSTvmMCgaUMJ3CGSX6IDFE8noaP6EwUmcFyp/OnRrP10VWILt6yixFFQJyrGfle+Qb+4Dc58D9+L0Dcr/6BdYh44Bq1OPekHFAyMA1oErLj/UiZBlQvXp8G7IMCHn4BVR1+TFdhMwCql2PY0NmASEbAoLEKaAr3L/s7mJOASEhAoLEJqDr3L+87mI2ASEnAoKEgCAhIEgICBICgoSAICEgSAgIEpuAavwQuJ3L+doEhJwICBKngFxWdZ3RmToFhIQICBKzgIzW9m5e52gWUMK/9R/Lq55lMQwIqfitQIUXIbvlx3gFcrzWz5mekeUKhDyMAzJ9y+7yPRfjgMo8DPnWY/wMtLG++gXeA94r0Mq3Id8j31QIyLShAvUsS6H/K2Nl8QvoGumsiqxARo9EleopuAJtEi5FxdJZ1fnvnnYlyahkOpcIaPqDUeF0LhTQlIzKp3O5gM55PLpIN5viz0DPBT4hXa0bAtpxqKfLFnPn0isQdNU+SMTJCAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICBICgoSAIPkHE8KOmR3rkFYAAAAASUVORK5CYII=">
+<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAFHklEQVR4Xu3dUY6bMBSFYabqOjob7Dx3C53nrrA7qSokFCVMYnyu8T2X/3sGB/AfQxNl+vbj5+8F6PWtd0fgPwKChIAgISBICAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICJLv0t5u/v75dXfI7x+f4kk8jrksAcO6eLvCn7jbnWO9pJfD6nXmVz+gl9O8aZ/v9jHLr0bFn4EOzXTjxo2bbY5u76VyQB0z93KXlxvs6tvLQtmAuufsyY7dYy6LtG9mNQNSZrrwZI9QMCCxntXjIPqw+ggJFQxohKi5jxonj2oBBc5Q4FCFVQsIJysVUPiasQ4YO2zsaNOVCgjnIyBI6nwX5nVraP/eLTlWIEgICBICgoSAICEgSAgIEgKChIAgISBI6gQ06LPdEcOOGHOWOgFhiuy/TB3xW9LM7M436ZepLd+M7t4IWnZst71E4LDdh72743TpVqD2qVq3zHlZ27mfb65noParubnbJbCnwKG+op/vdIkC6riaq+4d20XFdDtO92F37zhCloDEi3K7e8hkPw6iDxtSz2nvmUYpAhLrebym4mSLu78Ufr4TpQhohO4InuzYPWaBh/2vzA8o5O24u7B3zPfLXV5usCvw5nUr8NJ1mxxQ+CVQ/lHWGEfjZptB9SR5GJoc0Aka57txs9X7x2fL9o2bWUv3QeIITz5QbungK+u+u4uoMqyXmV9lhN+/du8aeZQ83/q3MAxFQJBMC2jcen7OlxtHVT3faQGhBgKChIAgISBICAgSAoKEgCAhIEgICJJpAQ39vnro4H2GHtLQwZ+bFhBqICBIZgY0aOEdNKxu0IENGrbRzIBQAAFBMjmg8OU3fMBY4YcXPuBRkwOK/cXd9KvZIvAgA4fqNj8gWEsRUMg7KWSQc4QcasgguhQB6TeyJFeznXjA4u6BsgSkNJTnah7SfdjdO44w84eFu47+eiHwah566ajXPfSiyttskHQBrVouqz6FLa/SSDyYliMRX2KQpAFtHq+sfh1bZqubeHgjzneo7AEFGtrNI7EkF5cI6OR0bpXPqHhAE9O5SEZlA0qSTvmMCgaUMJ3CGSX6IDFE8noaP6EwUmcFyp/OnRrP10VWILt6yixFFQJyrGfle+Qb+4Dc58D9+L0Dcr/6BdYh44Bq1OPekHFAyMA1oErLj/UiZBlQvXp8G7IMCHn4BVR1+TFdhMwCql2PY0NmASEbAoLEKaAr3L/s7mJOASEhAoLEJqDr3L+87mI2ASEnAoKEgCAhIEgICBICgoSAICEgSAgIEpuAavwQuJ3L+doEhJwICBKngFxWdZ3RmToFhIQICBKzgIzW9m5e52gWUMK/9R/Lq55lMQwIqfitQIUXIbvlx3gFcrzWz5mekeUKhDyMAzJ9y+7yPRfjgMo8DPnWY/wMtLG++gXeA94r0Mq3Id8j31QIyLShAvUsS6H/K2Nl8QvoGumsiqxARo9EleopuAJtEi5FxdJZ1fnvnnYlyahkOpcIaPqDUeF0LhTQlIzKp3O5gM55PLpIN5viz0DPBT4hXa0bAtpxqKfLFnPn0isQdNU+SMTJCAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICBICgoSAIPkHE8KOmR3rkFYAAAAASUVORK5CYII=">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --bg:#E9EDEF; --card:#FFFFFF; --ink:#1B2329; --muted:#5B6870; --line:#D2DADE; --accent:#1E6C88; --on-accent:#FFFFFF;
+  --ok:#2E8A52; --caution:#B88A0C; --warn:#D2621B; --danger:#BF3328; --like:#D9405E;
+  --ok-soft:#DDF0E3; --caution-soft:#F6EDCF; --warn-soft:#FBE3D3; --danger-soft:#F8DCD9;
+  --display:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --nav-h:62px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root{
+  --bg:#12181C; --card:#1B2328; --ink:#E6ECEF; --muted:#9AA8B0; --line:#2D3940; --accent:#5FB4D2; --on-accent:#0E1A20;
+  --ok:#5BC384; --caution:#E2B83D; --warn:#F08B4B; --danger:#F06A5E; --like:#F27390;
+  --ok-soft:#1C3527; --caution-soft:#3A3218; --warn-soft:#3E2718; --danger-soft:#42201D; color-scheme:dark } }
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+.view{max-width:560px;margin:0 auto;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(var(--nav-h) + 28px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+.view[hidden]{display:none}
+h1{font-family:var(--display);font-weight:900;font-size:1.5rem;margin:0}
+h2{font-family:var(--display);font-size:1.05rem;font-weight:700;margin:0}
+.sub,.note{font-size:.82rem;color:var(--muted);margin:0}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+section{display:flex;flex-direction:column;gap:10px}
+.panel{background:var(--card);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.btn{font-weight:700;border:0;border-radius:10px;padding:10px 16px;background:var(--accent);color:var(--on-accent);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.5}
+input[type=text],input[type=email],textarea{width:100%;font:inherit;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+textarea{resize:vertical;min-height:80px}
+.row2{display:flex;gap:8px;flex-wrap:wrap}.row2>input{flex:1 1 160px;min-width:0}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* 判定 */
+.verdict{border-radius:18px;padding:20px;background:var(--lvsoft);border:2px solid var(--lv);display:flex;flex-direction:column;gap:10px}
+.when{font-size:.85rem;font-weight:700;color:var(--muted)}
+.big{font-family:var(--display);font-weight:900;font-size:2.3rem;line-height:1.15;color:var(--lv);margin:0}
+.lead{margin:0;font-weight:500}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.metric{background:var(--card);border-radius:12px;padding:10px 10px 8px}
+.metric b{display:block;font-family:var(--display);font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.metric span{font-size:.74rem;color:var(--muted)}
+.strip{display:flex;gap:3px;overflow-x:auto;padding-bottom:4px}
+.cell{flex:1 0 18px;min-width:18px;height:46px;border:0;border-radius:5px;background:var(--c);cursor:pointer;padding:0}
+.cell[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:1px}
+.hours{display:flex;gap:3px;font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.hours span{flex:1 0 18px;min-width:18px;text-align:center}
+.best{background:var(--card);border-radius:12px;padding:12px 14px;font-weight:700}
+.best small{display:block;font-weight:400;color:var(--muted);font-size:.8rem}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.surfrow{display:grid;grid-template-columns:88px 1fr 52px;align-items:center;gap:10px}
+.surfrow .v{text-align:right;font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums}
+.track{position:relative;height:12px;background:var(--bg);border-radius:6px;overflow:hidden}
+.fill{position:absolute;inset:0 auto 0 0;border-radius:6px;background:var(--c)}
+.mark{position:absolute;top:0;bottom:0;width:2px;background:var(--danger)}
+.reasons{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.reasons li{background:var(--card);border-radius:12px;padding:10px 14px 10px 32px;position:relative}
+.reasons li::before{content:"";position:absolute;left:13px;top:17px;width:9px;height:9px;border-radius:50%;background:var(--c)}
+.start{background:var(--card);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:12px}
+.start p{margin:0}
+
+/* チップ */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.grp{display:flex;flex-direction:column;gap:6px}.grp>span{font-size:.8rem;color:var(--muted)}
+.chip{font-size:.88rem;border:1.5px solid var(--line);background:var(--card);border-radius:99px;padding:5px 14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+
+/* 地図 */
+#tab-map{max-width:none;padding:0;gap:0;height:100%}
+#map{position:fixed;inset:0 0 calc(var(--nav-h) + env(safe-area-inset-bottom,0px)) 0;z-index:0;background:var(--bg)}
+.mapbar{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:500;display:flex;gap:8px;justify-content:space-between;pointer-events:none}
+.mapbar>*{pointer-events:auto}
+.pill{background:var(--card);border-radius:99px;padding:8px 14px;font-size:.85rem;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.18);border:0;cursor:pointer}
+.pill .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:-1px}
+.pin{width:52px;height:52px;border-radius:14px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);background:#ccc center/cover no-repeat;position:relative}
+.pin b{position:absolute;right:-8px;top:-8px;background:var(--accent);color:var(--on-accent);font-size:.72rem;min-width:22px;height:22px;border-radius:11px;display:grid;place-items:center;padding:0 5px;border:2px solid #fff}
+.me-dot{width:18px;height:18px;border-radius:50%;background:#2B7BE4;border:3px solid #fff;box-shadow:0 0 0 6px rgba(43,123,228,.25)}
+
+/* 投稿 */
+.seg{display:flex;background:var(--card);border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:8px 0;font-weight:700;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.feed{display:flex;flex-direction:column;gap:16px}
+.post{background:var(--card);border-radius:16px;overflow:hidden}
+.phead{display:flex;align-items:center;gap:10px;padding:10px 12px}
+.av{width:38px;height:38px;border-radius:50%;background:var(--line) center/cover no-repeat;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:700;color:var(--muted)}
+.who{flex:1;min-width:0;border:0;background:none;text-align:left;padding:0;cursor:pointer}
+.who b{display:block;line-height:1.3}
+.who span{font-size:.76rem;color:var(--muted)}
+.more{border:0;background:none;font-size:1.3rem;line-height:1;padding:4px 8px;cursor:pointer;color:var(--muted)}
+.pimg{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--line);max-width:100%}
+.pbody{padding:10px 12px 14px;display:flex;flex-direction:column;gap:6px}
+.acts{display:flex;gap:14px;align-items:center}
+.act{border:0;background:none;display:flex;align-items:center;gap:5px;font-weight:700;padding:4px 0;cursor:pointer;font-variant-numeric:tabular-nums}
+.act svg{width:24px;height:24px}
+.act.liked{color:var(--like)}
+.cap{margin:0;white-space:pre-wrap;word-break:break-word}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.grid3 button{border:0;padding:0;aspect-ratio:1/1;background:var(--line) center/cover no-repeat;border-radius:6px;cursor:pointer}
+.fab{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(var(--nav-h) + 18px + env(safe-area-inset-bottom,0px));z-index:600;width:58px;height:58px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;display:grid;place-items:center}
+.fab svg{width:28px;height:28px}
+
+/* マイページ */
+.prof{display:flex;gap:14px;align-items:center}
+.prof .av{width:72px;height:72px;font-size:1.6rem}
+.stats{display:flex;gap:18px;font-size:.85rem;color:var(--muted)}
+.stats b{color:var(--ink);font-family:var(--display);font-size:1.1rem;margin-right:3px}
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--muted)}
+
+/* ナビ */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:700;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav button{flex:1;height:var(--nav-h);border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.7rem;color:var(--muted);cursor:pointer}
+nav button svg{width:24px;height:24px}
+nav button[aria-current="page"]{color:var(--accent);font-weight:700}
+
+/* シート */
+.scrim{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:14px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
+.sheethead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.x{border:0;background:var(--card);width:36px;height:36px;border-radius:50%;font-size:1.2rem;cursor:pointer}
+.cmts{display:flex;flex-direction:column;gap:10px}
+.cmt{display:flex;gap:10px}.cmt .av{width:30px;height:30px;font-size:.8rem}
+.cmt div{min-width:0}.cmt p{margin:0;word-break:break-word}.cmt small{color:var(--muted)}
+.menu{display:flex;flex-direction:column;gap:8px}
+.menu button{border:0;background:var(--card);border-radius:12px;padding:14px;text-align:left;font-weight:700;cursor:pointer}
+.menu .danger{color:var(--danger)}
+.preview{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:14px;background:var(--line)}
+.pick{border:2px dashed var(--line);border-radius:14px;aspect-ratio:1/1;display:grid;place-items:center;color:var(--muted);cursor:pointer;background:var(--card);text-align:center;padding:20px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:.9rem}
+.check input{width:20px;height:20px;margin-top:2px;accent-color:var(--accent)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + 90px + env(safe-area-inset-bottom,0px));z-index:1000;background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;font-size:.88rem;font-weight:700;max-width:90vw}
+.leaflet-container{font-family:var(--body)}
+</style>
+</head>
+<body>
+
+<!-- ========== 判定 ========== -->
+<main class="view" id="tab-home">
+  <div class="top"><h1>さんぽ路面計</h1><span class="sub" id="placeLbl"></span></div>
+  <div id="homeBody"></div>
+  <section>
+    <h2>うちの子</h2>
+    <div class="panel" id="dogChips"></div>
+  </section>
+  <section>
+    <h2>別の場所を調べる</h2>
+    <div class="panel">
+      <div class="row2"><input type="text" id="cityInput" placeholder="地名（例：横浜）" autocomplete="off"><button class="btn ghost" id="cityBtn">探す</button></div>
+      <button class="btn ghost" id="geoBtn2">現在地に戻す</button>
+    </div>
+  </section>
+  <p class="note">数値は気象データからの推定です。出かける前に手の甲を地面に5秒当てて確かめてください。愛犬の息が荒い、ふらつくなどの様子があればすぐに中止し、動物病院に相談してください。天気：Open-Meteo</p>
+</main>
+
+<!-- ========== 地図 ========== -->
+<main class="view" id="tab-map" hidden>
+  <div id="map"></div>
+  <div class="mapbar">
+    <button class="pill" id="mapStatus"><span class="dot" style="--c:var(--muted)"></span>現在地の判定</button>
+    <button class="pill" id="mapLocate">現在地へ</button>
+  </div>
+</main>
+
+<!-- ========== みんな ========== -->
+<main class="view" id="tab-feed" hidden>
+  <div class="top"><h1>みんなのわんこ</h1></div>
+  <div class="seg" id="feedSeg">
+    <button data-f="new" aria-pressed="true">新着</button>
+    <button data-f="near" aria-pressed="false">近く</button>
+    <button data-f="follow" aria-pressed="false">フォロー中</button>
+  </div>
+  <div class="feed" id="feed"></div>
+</main>
+
+<!-- ========== マイページ ========== -->
+<main class="view" id="tab-me" hidden>
+  <div class="top"><h1>マイページ</h1></div>
+  <div id="meBody"></div>
+</main>
+
+<button class="fab" id="fab" aria-label="写真を投稿" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+
+<nav>
+  <button data-tab="home" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>判定</button>
+  <button data-tab="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>マップ</button>
+  <button data-tab="feed"><svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="7" cy="9" rx="2" ry="2.6"/><ellipse cx="17" cy="9" rx="2" ry="2.6"/><ellipse cx="10.3" cy="5.2" rx="1.9" ry="2.5"/><ellipse cx="13.7" cy="5.2" rx="1.9" ry="2.5"/><path d="M12 11.5c-3 0-6 3.6-6 6.2 0 1.6 1.4 2.3 3 2.3 1.2 0 2-.6 3-.6s1.8.6 3 .6c1.6 0 3-.7 3-2.3 0-2.6-3-6.2-6-6.2z"/></svg>みんな</button>
+  <button data-tab="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>マイページ</button>
+</nav>
+
+<script>
+/* ================= 設定（ここだけ書き換える） ================= */
+const CONFIG = {
+  supabaseUrl: "https://odwucmmcxbdyhncxdwvg.supabase.co",
+  supabaseKey: "sb_publishable_QHjteDmQ0H_2gfAv5wDAgg_LVEzWQS9"
+};
+/* ============================================================ */
+
+const READY = !!window.supabase;
+const sb = READY ? supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey) : null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const photo = p => p ? `${CONFIG.supabaseUrl}/storage/v1/object/public/photos/${p}` : "";
+const ls = { get(k,d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+             set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} } };
+function toast(t){ const d=document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2600); }
+const ago = t => { const s=(Date.now()-new Date(t))/1000; if(s<60)return"たった今"; if(s<3600)return Math.floor(s/60)+"分前"; if(s<86400)return Math.floor(s/3600)+"時間前"; if(s<604800)return Math.floor(s/86400)+"日前"; const d=new Date(t); return `${d.getMonth()+1}月${d.getDate()}日`; };
+const avatar = (p, name) => p ? `<span class="av" style="background-image:url('${photo(p)}')"></span>` : `<span class="av">${esc((name||"?").slice(0,1))}</span>`;
+
+let me = null;          // {id, profile}
+let pos = null;         // {lat, lon} 現在地（端末内だけで使い、保存しない）
+let weather = null;     // {hours, place, sel}
+let dog = ls.get("sanpo-profile", {size:"small", age:"adult", brachy:"no"});
+
+/* ================= 判定ロジック ================= */
+const LV = [
+  {name:"散歩OK", c:"var(--ok)", s:"var(--ok-soft)"},
+  {name:"注意して散歩", c:"var(--caution)", s:"var(--caution-soft)"},
+  {name:"短めに切り上げて", c:"var(--warn)", s:"var(--warn-soft)"},
+  {name:"今は避けて", c:"var(--danger)", s:"var(--danger-soft)"}
+];
+const CODE = c => c===0?"快晴":c<=2?"晴れ":c===3?"くもり":c<=48?"霧":c<=67?"雨":c<=77?"雪":c<=82?"にわか雨":c<=86?"にわか雪":"雷雨";
+const wbgt = (t,rh,sw,ws) => 0.735*t + 0.0374*rh + 0.00292*t*rh + 7.619*sw - 4.557*sw*sw - 0.0572*ws - 4.064; // 小野式
+function windChill(t, ws){ const v=ws*3.6; if(t>10||v<=4.8) return t; const p=Math.pow(v,0.16); return 13.12+0.6215*t-11.37*p+0.3965*t*p; }
+function evaluate(all){
+  const heatOff = (dog.brachy==="yes"?2:0) + (dog.age!=="adult"?1:0) + (dog.size==="small"?0.5:0);
+  const coldOff = (dog.size==="small"?3:dog.size==="large"?-3:0) + (dog.age!=="adult"?2:0);
+  let prevD = 0;
+  return all.map((h,i)=>{
+    const sw = j => all[Math.max(0,i-j)].sw;
+    const lag = 0.6*sw(0)+0.25*sw(1)+0.15*sw(2);
+    let d = Math.max(0.5, 0.026*lag - 0.6*Math.max(0,h.ws-1)); d = Math.max(d, prevD*0.55); prevD = d;
+    const asph=h.temp+d, conc=h.temp+0.65*d, grass=h.temp+0.2*d;
+    const w = wbgt(h.temp,h.rh,h.sw/1000,h.ws), wc = windChill(h.temp,h.ws);
+    let p6=0, s48=0;
+    for(let j=Math.max(0,i-6);j<=i;j++) p6+=all[j].precip||0;
+    for(let j=Math.max(0,i-48);j<=i;j++) s48+=all[j].snow||0;
+    const R=[];
+    if(asph>=50) R.push([3,`アスファルトが約${Math.round(asph)}℃。肉球が数十秒でやけどする温度です。`]);
+    else if(asph>=45) R.push([2,`アスファルトが約${Math.round(asph)}℃。日なたの舗装路は避けて、土や芝生の上を歩きましょう。`]);
+    else if(asph>=40) R.push([1,`アスファルトが約${Math.round(asph)}℃で熱め。出る前に手で触って確かめましょう。`]);
+    const t1=23-heatOff,t2=26-heatOff,t3=28.5-heatOff;
+    if(w>=t3) R.push([3,`暑さ指数が${w.toFixed(1)}。犬にとって熱中症の危険が高い状態です。`]);
+    else if(w>=t2) R.push([2,`暑さ指数が${w.toFixed(1)}。散歩は短く、日陰と水分補給を。`]);
+    else if(w>=t1) R.push([1,`暑さ指数が${w.toFixed(1)}。地面に近い犬は人より暑く感じています。`]);
+    const c1=3+coldOff,c2=-4+coldOff,c3=-12+coldOff;
+    if(wc<=c3) R.push([3,`体感温度が${Math.round(wc)}℃。体が冷えすぎる危険があります。`]);
+    else if(wc<=c2) R.push([2,`体感温度が${Math.round(wc)}℃。服を着せて短めに。`]);
+    else if(wc<=c1) R.push([1,`体感温度が${Math.round(wc)}℃。寒がりの子は服があると安心です。`]);
+    if(h.temp<=1 && (p6>0.2||s48>0)) R.push([2,`気温${h.temp.toFixed(1)}℃で路面が凍っている可能性があります。日陰や橋の上に注意。`]);
+    else if(h.temp<=-1 && h.rh>=90 && h.sw<50) R.push([1,"冷え込みで路面に霜や薄い氷ができやすい時間です。"]);
+    if(s48>0 && h.temp<=6) R.push([1,"雪のあとは融雪剤がまかれていることがあります。帰ったら足をぬるま湯で洗いましょう。"]);
+    if(h.precip>=10) R.push([2,`強い雨（${h.precip}mm）が予想されています。`]);
+    else if(h.precip>=2) R.push([1,`雨が降っています（${h.precip}mm）。`]);
+    const level = R.reduce((m,r)=>Math.max(m,r[0]),0);
+    if(!R.length) R.push([0,"暑さ、寒さ、路面ともに問題ありません。"]);
+    if(h.hour<5||h.hour>=19) R.push([0,"暗い時間帯です。光るリードや反射材があると安全です。"]);
+    R.sort((a,b)=>b[0]-a[0]);
+    return {level,asph,conc,grass,w,wc,reasons:R};
+  });
+}
+let rawWeather = null;
+async function loadWeather(lat, lon, place){
+  try{
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&hourly=temperature_2m,relative_humidity_2m,shortwave_radiation,wind_speed_10m,precipitation,snowfall,weather_code&wind_speed_unit=ms&timezone=auto&past_days=2&forecast_days=2`);
+    if(!r.ok) throw 0;
+    const j = await r.json(), H = j.hourly;
+    const all = H.time.map((t,i)=>({t,hour:+t.slice(11,13),temp:H.temperature_2m[i],rh:H.relative_humidity_2m[i],sw:H.shortwave_radiation[i]||0,ws:H.wind_speed_10m[i]||0,precip:H.precipitation[i]||0,snow:H.snowfall[i]||0,code:H.weather_code[i]}));
+    const key = new Date(Date.now()+j.utc_offset_seconds*1000).toISOString().slice(0,13);
+    let idx = all.findIndex(x=>x.t.slice(0,13)===key); if(idx<0) idx = Math.min(48, all.length-24);
+    rawWeather = {all, idx, place};
+    computeWeather();
+  }catch(e){ $("#homeBody").innerHTML = startCard("天気を取得できませんでした。電波の良い場所でもう一度お試しください。"); bindStart(); }
+}
+function computeWeather(){
+  if(!rawWeather) return;
+  const {all, idx, place} = rawWeather, ev = evaluate(all);
+  const sel = weather ? weather.sel : 0;
+  weather = {place, sel, hours: all.slice(idx, idx+24).map((h,k)=>Object.assign({},h,ev[idx+k],{isNow:k===0}))};
+  renderHome(); updateMapStatus();
+}
+function startCard(msg){
+  return `<div class="start"><h2>今、散歩して大丈夫？</h2><p>現在地の天気から、路面の温度と暑さ・寒さを判定します。位置情報はこの端末の中だけで使い、どこにも保存しません。</p>${msg?`<p class="note">${esc(msg)}</p>`:""}<button class="btn" id="geoBtn">現在地で判定する</button></div>`;
+}
+function bindStart(){ const b=$("#geoBtn"); if(b) b.onclick=()=>locate(true); }
+function renderHome(){
+  if(!weather){ $("#homeBody").innerHTML = startCard(); bindStart(); renderDogChips(); return; }
+  const H = weather.hours, h = H[weather.sel], L = LV[h.level];
+  $("#placeLbl").textContent = `${weather.place}・${CODE(h.code)}`;
+  const cold = h.temp < 12;
+  const max=70, pct=t=>Math.max(2,Math.min(100,(t+10)/(max+10)*100));
+  const col=t=>t>=50?"var(--danger)":t>=45?"var(--warn)":t>=40?"var(--caution)":t<=0?"var(--accent)":"var(--ok)";
+  const runs=[]; let st=-1;
+  H.forEach((x,i)=>{ const g=x.level===0&&x.hour>=5&&x.hour<21; if(g&&st<0)st=i; if((!g||i===H.length-1)&&st>=0){ runs.push([st,g?i:i-1]); st=-1; } });
+  const wins = runs.sort((a,b)=>(b[1]-b[0])-(a[1]-a[0])).slice(0,2).sort((a,b)=>a[0]-b[0]).map(([a,b])=>`${H[a].hour}時〜${(H[b].hour+1)%24}時`);
+  $("#homeBody").innerHTML = `
+  <div class="verdict" style="--lv:${L.c};--lvsoft:${L.s}">
+    <div class="when">${h.isNow?"今":h.hour+"時の予報"}</div>
+    <p class="big">${L.name}</p>
+    <p class="lead">${esc(h.reasons[0][1])}</p>
+    <div class="metrics">
+      <div class="metric"><b>${Math.round(h.asph)}℃</b><span>アスファルト推定</span></div>
+      <div class="metric"><b>${cold?Math.round(h.wc)+"℃":h.w.toFixed(1)}</b><span>${cold?"体感温度":"暑さ指数"}</span></div>
+      <div class="metric"><b>${h.temp.toFixed(1)}℃</b><span>気温</span></div>
+    </div>
+  </div>
+  <section><h2>これから24時間</h2>
+    <div><div class="strip">${H.map((x,i)=>`<button class="cell" data-i="${i}" style="--c:${LV[x.level].c}" aria-pressed="${i===weather.sel}" aria-label="${x.hour}時 ${LV[x.level].name}"></button>`).join("")}</div>
+    <div class="hours">${H.map((x,i)=>`<span>${i===0?"今":x.hour%3===0?x.hour:""}</span>`).join("")}</div></div>
+    <div class="legend"><span><i style="background:var(--ok)"></i>散歩OK</span><span><i style="background:var(--caution)"></i>注意</span><span><i style="background:var(--warn)"></i>短めに</span><span><i style="background:var(--danger)"></i>避けて</span></div>
+    <div class="best">${wins.length?`おすすめの時間：${wins.join("、")}<small>暑さ・寒さ・路面の条件がそろって安全な時間帯です。</small>`:`安全な時間帯がありません<small>色が薄い時間を選んで短めに。室内遊びに切り替えるのもおすすめです。</small>`}</div>
+  </section>
+  <section><h2>路面の推定温度</h2><div class="panel">
+    ${[["アスファルト",h.asph],["コンクリート",h.conc],["土・芝生",h.grass]].map(([n,t])=>`<div class="surfrow"><span>${n}</span><div class="track"><div class="fill" style="width:${pct(t)}%;--c:${col(t)}"></div><div class="mark" style="left:${pct(50)}%"></div></div><span class="v">${Math.round(t)}℃</span></div>`).join("")}
+    <p class="note">赤い線は50℃（肉球がやけどする目安）</p>
+  </div></section>
+  <section><h2>判定の理由</h2><ul class="reasons">${h.reasons.map(r=>`<li style="--c:${LV[r[0]].c}">${esc(r[1])}</li>`).join("")}</ul></section>`;
+  document.querySelectorAll(".cell").forEach(b=>b.onclick=()=>{ weather.sel=+b.dataset.i; renderHome(); });
+  renderDogChips();
+}
+function renderDogChips(){
+  const g=(key,label,opts)=>`<div class="grp"><span>${label}</span><div class="chips">${opts.map(([v,t])=>`<button class="chip" data-k="${key}" data-v="${v}" aria-pressed="${dog[key]===v}">${t}</button>`).join("")}</div></div>`;
+  $("#dogChips").innerHTML = g("size","体の大きさ",[["small","小型犬"],["medium","中型犬"],["large","大型犬"]])
+    + g("age","年齢",[["puppy","子犬"],["adult","成犬"],["senior","シニア"]])
+    + g("brachy","鼻の短い犬種（パグ、フレブル、シーズーなど）",[["no","ちがう"],["yes","そう"]]);
+  $("#dogChips").querySelectorAll(".chip").forEach(c=>c.onclick=async()=>{
+    dog[c.dataset.k]=c.dataset.v; ls.set("sanpo-profile",dog); computeWeather(); renderDogChips();
+    if(me) await sb.from("profiles").update({dog_size:dog.size,dog_age:dog.age,brachy:dog.brachy==="yes"}).eq("id",me.id);
+  });
+}
+
+/* ================= 位置情報 ================= */
+function getPosition(){
+  return new Promise((res,rej)=>{
+    if(!navigator.geolocation) return rej(new Error("unsupported"));
+    navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lon:p.coords.longitude}), rej, {timeout:12000,maximumAge:300000,enableHighAccuracy:false});
+  });
+}
+async function locate(fromUser){
+  try{
+    pos = await getPosition(); ls.set("sanpo-geo-ok", true);
+    await loadWeather(pos.lat, pos.lon, "現在地");
+    if(map){ placeMe(); }
+  }catch(e){
+    if(fromUser){ $("#homeBody").innerHTML = startCard("位置情報を使えませんでした。スマホの設定でブラウザの位置情報をオンにするか、下の「別の場所を調べる」から地名で探してください。"); bindStart(); }
+  }
+}
+$("#geoBtn2").onclick = ()=>locate(true);
+async function searchCity(){
+  const q=$("#cityInput").value.trim(); if(!q) return;
+  try{
+    const j = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=ja&format=json`)).json();
+    if(!j.results||!j.results.length) return toast(`「${q}」が見つかりませんでした`);
+    const g=j.results[0]; weather=null; await loadWeather(g.latitude,g.longitude,[g.admin1,g.name].filter(Boolean).join(" "));
+  }catch(e){ toast("地名を探せませんでした"); }
+}
+$("#cityBtn").onclick=searchCity; $("#cityInput").onkeydown=e=>{ if(e.key==="Enter") searchCity(); };
+
+/* ================= 地図 ================= */
+let map=null, meMarker=null, postLayer=null;
+function initMap(){
+  if(map) { map.invalidateSize(); return; }
+  map = L.map("map",{zoomControl:false,attributionControl:true}).setView(pos?[pos.lat,pos.lon]:[35.68,139.76], pos?14:11);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
+  postLayer = L.layerGroup().addTo(map);
+  if(pos) placeMe();
+  let t; map.on("moveend",()=>{ clearTimeout(t); t=setTimeout(loadMapPosts,300); });
+  loadMapPosts();
+}
+function placeMe(){
+  if(!map||!pos) return;
+  const icon = L.divIcon({className:"",html:'<div class="me-dot"></div>',iconSize:[18,18],iconAnchor:[9,9]});
+  if(meMarker) meMarker.setLatLng([pos.lat,pos.lon]); else meMarker = L.marker([pos.lat,pos.lon],{icon,interactive:false}).addTo(map);
+}
+$("#mapLocate").onclick = async()=>{ if(!pos) await locate(true); if(pos&&map) map.setView([pos.lat,pos.lon],15); };
+$("#mapStatus").onclick = ()=>go("home");
+function updateMapStatus(){
+  if(!weather) return; const h=weather.hours[0];
+  $("#mapStatus").innerHTML = `<span class="dot" style="--c:${LV[h.level].c}"></span>今：${LV[h.level].name}`;
+}
+async function loadMapPosts(){
+  if(!READY||!map) return;
+  const b = map.getBounds();
+  const {data} = await sb.from("posts").select("id,image_path,lat_grid,lon_grid,area_name,created_at")
+    .not("lat_grid","is",null).gte("lat_grid",b.getSouth()-0.01).lte("lat_grid",b.getNorth()+0.01)
+    .gte("lon_grid",b.getWest()-0.01).lte("lon_grid",b.getEast()+0.01).order("created_at",{ascending:false}).limit(300);
+  postLayer.clearLayers();
+  const cells = {};
+  (data||[]).forEach(p=>{ const k=p.lat_grid+","+p.lon_grid; (cells[k]=cells[k]||[]).push(p); });
+  Object.values(cells).forEach(list=>{
+    const p=list[0];
+    const icon=L.divIcon({className:"",html:`<div class="pin" style="background-image:url('${photo(p.image_path)}')">${list.length>1?`<b>${list.length}</b>`:""}</div>`,iconSize:[52,52],iconAnchor:[26,26]});
+    L.marker([+p.lat_grid,+p.lon_grid],{icon}).addTo(postLayer).on("click",()=>openArea(list));
+  });
+}
+async function openArea(list){
+  const ids = list.map(p=>p.id);
+  const posts = await fetchPosts(q=>q.in("id",ids));
+  openSheet(`<div class="sheethead"><h2>${esc(list[0].area_name||"このあたり")}のわんこ</h2><button class="x" data-close>×</button></div><div class="feed">${posts.map(postCard).join("")}</div>`);
+}
+
+/* ================= 投稿データ ================= */
+const POST_COLS = "id,user_id,image_path,caption,area_name,lat_grid,lon_grid,created_at,profiles(nickname,dog_name,dog_breed,avatar_path),likes(count),comments(count)";
+let likedSet = new Set(), postCache = {};
+async function fetchPosts(filter, limit=30){
+  if(!READY) return [];
+  let q = sb.from("posts").select(POST_COLS).order("created_at",{ascending:false}).limit(limit);
+  q = filter ? filter(q) : q;
+  const {data,error} = await q;
+  if(error){ toast("投稿を読み込めませんでした"); return []; }
+  const posts = data||[];
+  posts.forEach(p=>{ p.likeCount=p.likes?.[0]?.count||0; p.cmtCount=p.comments?.[0]?.count||0; postCache[p.id]=p; });
+  if(me && posts.length){
+    const {data:l} = await sb.from("likes").select("post_id").eq("user_id",me.id).in("post_id",posts.map(p=>p.id));
+    (l||[]).forEach(x=>likedSet.add(x.post_id));
+  }
+  return posts;
+}
+const heart = f => `<svg viewBox="0 0 24 24" fill="${f?"currentColor":"none"}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-9.3-9.2C1.4 7.3 3.6 4 7 4c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.6 3.3 4.3 6.8C19.5 15.4 12 20 12 20z"/></svg>`;
+const bubble = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>`;
+function postCard(p){
+  const pr=p.profiles||{}, liked=likedSet.has(p.id);
+  const who = pr.dog_name ? `${esc(pr.dog_name)}${pr.dog_breed?`<span>（${esc(pr.dog_breed)}）</span>`:""}` : esc(pr.nickname||"飼い主さん");
+  return `<article class="post" data-id="${p.id}">
+    <div class="phead">${avatar(pr.avatar_path, pr.dog_name||pr.nickname)}
+      <button class="who" data-act="user" data-uid="${p.user_id}"><b>${who}</b><span>${esc(pr.nickname||"")} ・ ${p.area_name?esc(p.area_name)+"あたり ・ ":""}${ago(p.created_at)}</span></button>
+      <button class="more" data-act="menu" aria-label="メニュー">⋯</button></div>
+    <img class="pimg" src="${photo(p.image_path)}" alt="${esc(pr.dog_name||"わんこ")}の写真" loading="lazy">
+    <div class="pbody"><div class="acts">
+      <button class="act ${liked?"liked":""}" data-act="like" aria-pressed="${liked}">${heart(liked)}<span>${p.likeCount}</span></button>
+      <button class="act" data-act="comments">${bubble}<span>${p.cmtCount}</span></button></div>
+      ${p.caption?`<p class="cap">${esc(p.caption)}</p>`:""}</div></article>`;
+}
+document.addEventListener("click", async e=>{
+  const b = e.target.closest("[data-act]"); if(!b) return;
+  const card = b.closest(".post"), id = card ? +card.dataset.id : null, p = postCache[id];
+  const act = b.dataset.act;
+  if(act==="user") return openUser(b.dataset.uid);
+  if(act==="comments") return openComments(id);
+  if(act==="menu") return openPostMenu(p);
+  if(act==="like"){
+    if(!me) return needLogin();
+    const liked = likedSet.has(id);
+    const {error} = liked ? await sb.from("likes").delete().eq("post_id",id).eq("user_id",me.id) : await sb.from("likes").insert({post_id:id});
+    if(error) return toast("うまくいきませんでした");
+    liked ? likedSet.delete(id) : likedSet.add(id); p.likeCount += liked?-1:1;
+    document.querySelectorAll(`.post[data-id="${id}"] [data-act="like"]`).forEach(x=>{ x.classList.toggle("liked",!liked); x.setAttribute("aria-pressed",!liked); x.innerHTML=`${heart(!liked)}<span>${p.likeCount}</span>`; });
+  }
+});
+
+/* ================= フィード ================= */
+let feedMode = "new";
+$("#feedSeg").onclick = e=>{ const b=e.target.closest("button"); if(!b) return; feedMode=b.dataset.f; $("#feedSeg").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b)); loadFeed(); };
+async function loadFeed(){
+  const el=$("#feed");
+  if(!READY){ el.innerHTML=`<div class="empty">投稿機能は準備中です。</div>`; return; }
+  el.innerHTML=`<div class="empty">読み込み中…</div>`;
+  let posts=[];
+  if(feedMode==="new") posts = await fetchPosts();
+  else if(feedMode==="near"){
+    if(!pos){ try{ pos=await getPosition(); }catch(e){} }
+    if(!pos){ el.innerHTML=`<div class="empty">位置情報をオンにすると、近くのわんこが見られます。</div>`; return; }
+    posts = await fetchPosts(q=>q.gte("lat_grid",pos.lat-0.05).lte("lat_grid",pos.lat+0.05).gte("lon_grid",pos.lon-0.06).lte("lon_grid",pos.lon+0.06));
+  } else {
+    if(!me){ el.innerHTML=`<div class="empty">ログインすると、フォローした子の投稿が見られます。</div>`; return; }
+    const {data:f} = await sb.from("follows").select("followee_id").eq("follower_id",me.id);
+    const ids=(f||[]).map(x=>x.followee_id);
+    if(!ids.length){ el.innerHTML=`<div class="empty">まだ誰もフォローしていません。気になる子のお名前をタップしてフォローしてみましょう。</div>`; return; }
+    posts = await fetchPosts(q=>q.in("user_id",ids));
+  }
+  el.innerHTML = posts.length ? posts.map(postCard).join("") : `<div class="empty">${feedMode==="near"?"近くの投稿はまだありません。最初の1枚を投稿してみませんか？":"まだ投稿がありません。"}</div>`;
+}
+
+/* ================= シート ================= */
+function openSheet(html){
+  closeSheet();
+  const s=document.createElement("div"); s.className="scrim"; s.id="scrim";
+  s.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+  s.addEventListener("click",e=>{ if(e.target===s||e.target.closest("[data-close]")) closeSheet(); });
+  document.body.appendChild(s); document.body.style.overflow="hidden";
+  return s.querySelector(".sheet");
+}
+function closeSheet(){ const s=$("#scrim"); if(s) s.remove(); document.body.style.overflow=""; }
+function needLogin(){ toast("ログインすると使えます"); closeSheet(); go("me"); }
+
+async function openComments(id){
+  const p = postCache[id];
+  const sh = openSheet(`<div class="sheethead"><h2>コメント</h2><button class="x" data-close>×</button></div><div class="cmts" id="cmts"><p class="note">読み込み中…</p></div>
+    ${me?`<div class="row2"><input type="text" id="cmtIn" maxlength="200" placeholder="やさしい言葉でコメント"><button class="btn" id="cmtBtn">送る</button></div>`:`<button class="btn ghost" id="cmtLogin">ログインしてコメントする</button>`}`);
+  const load = async()=>{
+    const {data} = await sb.from("comments").select("id,body,created_at,user_id,profiles(nickname,dog_name,avatar_path)").eq("post_id",id).order("created_at");
+    sh.querySelector("#cmts").innerHTML = (data&&data.length) ? data.map(c=>`<div class="cmt">${avatar(c.profiles?.avatar_path,c.profiles?.dog_name||c.profiles?.nickname)}<div><small>${esc(c.profiles?.nickname||"飼い主さん")} ・ ${ago(c.created_at)}${me&&c.user_id===me.id?` ・ <a href="#" data-del="${c.id}">削除</a>`:""}</small><p>${esc(c.body)}</p></div></div>`).join("") : `<p class="note">まだコメントはありません。</p>`;
+    sh.querySelectorAll("[data-del]").forEach(a=>a.onclick=async ev=>{ ev.preventDefault(); await sb.from("comments").delete().eq("id",+a.dataset.del); if(p){p.cmtCount--;} load(); });
+    if(p){ p.cmtCount = data?data.length:0; document.querySelectorAll(`.post[data-id="${id}"] [data-act="comments"] span`).forEach(s=>s.textContent=p.cmtCount); }
+  };
+  load();
+  if(me){ const send=async()=>{ const v=sh.querySelector("#cmtIn").value.trim(); if(!v) return; const {error}=await sb.from("comments").insert({post_id:id,body:v}); if(error) return toast("送れませんでした"); sh.querySelector("#cmtIn").value=""; load(); };
+    sh.querySelector("#cmtBtn").onclick=send; sh.querySelector("#cmtIn").onkeydown=e=>{ if(e.key==="Enter"&&!e.isComposing) send(); }; }
+  else sh.querySelector("#cmtLogin").onclick=needLogin;
+}
+function openPostMenu(p){
+  const mine = me && p.user_id===me.id;
+  const sh = openSheet(`<div class="menu">${mine?`<button class="danger" id="mDel">この投稿を削除</button>`:`<button id="mReport">この投稿を通報する</button>`}<button data-close>閉じる</button></div>`);
+  if(mine) sh.querySelector("#mDel").onclick = ()=>{
+    sh.innerHTML = `<h2>投稿を削除しますか？</h2><p class="note">削除すると元に戻せません。</p><div class="menu"><button class="danger" id="mDelYes">削除する</button><button data-close>やめる</button></div>`;
+    sh.querySelector("#mDelYes").onclick = async()=>{
+      const {error}=await sb.from("posts").delete().eq("id",p.id); if(error) return toast("削除できませんでした");
+      await sb.storage.from("photos").remove([p.image_path]); closeSheet(); toast("削除しました");
+      document.querySelectorAll(`.post[data-id="${p.id}"]`).forEach(x=>x.remove()); if(map) loadMapPosts();
+    };
+  };
+  else sh.querySelector("#mReport").onclick = ()=>{
+    if(!me) return needLogin();
+    sh.innerHTML = `<h2>通報の理由</h2><div class="menu">${["犬と関係ない写真","人の顔や家が写っている","不快・攻撃的な内容","宣伝・スパム"].map(r=>`<button data-r="${r}">${r}</button>`).join("")}<button data-close>やめる</button></div>`;
+    sh.querySelectorAll("[data-r]").forEach(b=>b.onclick=async()=>{
+      const {error}=await sb.from("reports").insert({post_id:p.id,reason:b.dataset.r});
+      closeSheet(); toast(error&&error.code==="23505"?"すでに通報済みです":error?"通報できませんでした":"通報しました。ご協力ありがとうございます");
+    });
+  };
+}
+
+/* ================= ユーザー ================= */
+async function openUser(uid){
+  if(!READY) return;
+  const sh = openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div><p class="note">読み込み中…</p>`);
+  const [{data:pr},{count:fers},{count:fing},{data:ps},isF] = await Promise.all([
+    sb.from("profiles").select("*").eq("id",uid).single(),
+    sb.from("follows").select("*",{count:"exact",head:true}).eq("followee_id",uid),
+    sb.from("follows").select("*",{count:"exact",head:true}).eq("follower_id",uid),
+    sb.from("posts").select("id,image_path").eq("user_id",uid).order("created_at",{ascending:false}).limit(60),
+    me&&me.id!==uid ? sb.from("follows").select("followee_id").eq("follower_id",me.id).eq("followee_id",uid).maybeSingle() : Promise.resolve({data:null})
+  ]);
+  if(!pr){ sh.innerHTML=`<p class="note">見つかりませんでした。</p><button class="btn ghost" data-close>閉じる</button>`; return; }
+  let following = !!isF.data;
+  sh.innerHTML = `<div class="sheethead"><span></span><button class="x" data-close>×</button></div>
+    <div class="prof">${avatar(pr.avatar_path,pr.dog_name||pr.nickname)}<div><h2>${esc(pr.dog_name||pr.nickname)}</h2><p class="note">${esc(pr.dog_breed)}${pr.dog_breed?" ・ ":""}飼い主：${esc(pr.nickname)}</p>
+      <div class="stats"><span><b>${(ps||[]).length}</b>投稿</span><span><b id="ferN">${fers||0}</b>フォロワー</span><span><b>${fing||0}</b>フォロー</span></div></div></div>
+    ${me&&me.id===uid?"":`<button class="btn wide ${following?"ghost":""}" id="folBtn">${following?"フォロー中":"フォローする"}</button>`}
+    <div class="grid3">${(ps||[]).map(p=>`<button data-pid="${p.id}" style="background-image:url('${photo(p.image_path)}')" aria-label="投稿を見る"></button>`).join("")}</div>`;
+  const fb = sh.querySelector("#folBtn");
+  if(fb) fb.onclick = async()=>{
+    if(!me) return needLogin();
+    const {error} = following ? await sb.from("follows").delete().eq("follower_id",me.id).eq("followee_id",uid) : await sb.from("follows").insert({followee_id:uid});
+    if(error) return toast("うまくいきませんでした");
+    following=!following; fb.textContent=following?"フォロー中":"フォローする"; fb.classList.toggle("ghost",following);
+    const n=sh.querySelector("#ferN"); n.textContent = +n.textContent + (following?1:-1);
+  };
+  sh.querySelectorAll("[data-pid]").forEach(b=>b.onclick=async()=>{
+    const posts = await fetchPosts(q=>q.eq("id",+b.dataset.pid));
+    if(posts[0]) openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div>${postCard(posts[0])}`);
+  });
+}
+
+/* ================= 投稿する ================= */
+async function shrink(file, max=1280){
+  let src;
+  try{ src = await createImageBitmap(file,{imageOrientation:"from-image"}); }
+  catch(e){ src = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=URL.createObjectURL(file); }); }
+  const s = Math.min(1, max/Math.max(src.width,src.height));
+  const c = document.createElement("canvas"); c.width=Math.round(src.width*s); c.height=Math.round(src.height*s);
+  c.getContext("2d").drawImage(src,0,0,c.width,c.height);
+  return await new Promise(r=>c.toBlob(r,"image/jpeg",0.85)); // 描き直すので撮影場所などの情報（EXIF）は消える
+}
+const grid = v => Math.round(v*100)/100; // 約1km単位に丸める
+async function areaName(lat, lon){
+  try{
+    const j = await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=14&accept-language=ja`)).json();
+    const a = j.address||{}, city = a.city||a.town||a.village||a.county||"", sub = a.city_district||a.suburb||a.quarter||"";
+    return ((city + (sub && !city.includes(sub) ? sub : "")) || a.state || "").slice(0,60);
+  }catch(e){ return ""; }
+}
+function openComposer(){
+  if(!me) return needLogin();
+  let blob=null, area=null;
+  const sh = openSheet(`<div class="sheethead"><h2>わんこを投稿</h2><button class="x" data-close>×</button></div>
+    <label class="pick" id="pick"><span>タップして写真を選ぶ</span><input type="file" id="fileIn" accept="image/*" hidden></label>
+    <textarea id="capIn" maxlength="300" placeholder="ひとこと（例：今日は涼しくて元気いっぱい！）"></textarea>
+    <label class="check"><input type="checkbox" id="areaChk" checked><span>だいたいのエリアを付ける<br><small class="note" id="areaLbl">約1km単位の地域名だけが表示され、正確な場所は保存されません。</small></span></label>
+    <p class="note">家や表札、人の顔、車のナンバーが写っていないか確認してください。写真の撮影場所の情報は自動で消してから送ります。</p>
+    <button class="btn wide" id="postBtn" disabled>投稿する</button>`);
+  sh.querySelector("#fileIn").onchange = async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    try{ blob = await shrink(f); }catch(err){ return toast("この写真は読み込めませんでした"); }
+    sh.querySelector("#pick").innerHTML = `<img class="preview" src="${URL.createObjectURL(blob)}" alt="選んだ写真">`;
+    sh.querySelector("#pick").style.padding="0"; sh.querySelector("#pick").style.border="0";
+    sh.querySelector("#postBtn").disabled=false;
+  };
+  const fillArea = async()=>{
+    const lbl=sh.querySelector("#areaLbl");
+    if(!sh.querySelector("#areaChk").checked){ area=null; lbl.textContent="エリアなしで投稿します（地図には表示されません）。"; return; }
+    lbl.textContent="エリアを確認しています…";
+    try{ if(!pos) pos = await getPosition(); }catch(e){ area=null; lbl.textContent="位置情報を使えないため、エリアなしで投稿します。"; return; }
+    const la=grid(pos.lat), lo=grid(pos.lon);
+    area = {lat_grid:la, lon_grid:lo, area_name: await areaName(la,lo)};
+    lbl.textContent = `表示：「${area.area_name||"このあたり"}あたり」。正確な場所は保存されません。`;
+  };
+  sh.querySelector("#areaChk").onchange = fillArea; fillArea();
+  sh.querySelector("#postBtn").onclick = async()=>{
+    const btn=sh.querySelector("#postBtn"); btn.disabled=true; btn.textContent="投稿しています…";
+    const path = `${me.id}/${Date.now()}.jpg`;
+    const up = await sb.storage.from("photos").upload(path, blob, {contentType:"image/jpeg"});
+    if(up.error){ btn.disabled=false; btn.textContent="投稿する"; return toast("写真を送れませんでした"); }
+    const row = Object.assign({image_path:path, caption:sh.querySelector("#capIn").value.trim()}, area||{});
+    const {error} = await sb.from("posts").insert(row);
+    if(error){ await sb.storage.from("photos").remove([path]); btn.disabled=false; btn.textContent="投稿する"; return toast("投稿できませんでした"); }
+    closeSheet(); toast("投稿しました"); feedMode="new";
+    $("#feedSeg").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.f==="new"));
+    go("feed"); if(map) loadMapPosts();
+  };
+}
+$("#fab").onclick = openComposer;
+
+/* ================= ログインとマイページ ================= */
+async function loadMe(session){
+  if(!session){ me=null; renderMe(); return; }
+  let {data:pr} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
+  if(!pr){ await sb.from("profiles").insert({id:session.user.id}); pr={id:session.user.id,nickname:"飼い主さん",dog_name:"",dog_breed:"",dog_size:dog.size,dog_age:dog.age,brachy:dog.brachy==="yes"}; }
+  me = {id:session.user.id, email:session.user.email, profile:pr};
+  dog = {size:pr.dog_size||"small", age:pr.dog_age||"adult", brachy:pr.brachy?"yes":"no"}; ls.set("sanpo-profile",dog);
+  computeWeather(); renderDogChips(); renderMe();
+}
+function renderMe(){
+  const el=$("#meBody");
+  if(!READY){ el.innerHTML=`<div class="panel"><h2>準備中</h2><p class="note">投稿やログインは、サーバーの設定が終わると使えるようになります。散歩の判定と地図はそのまま使えます。</p></div>`; return; }
+  if(!me){
+    el.innerHTML=`<div class="panel"><h2>ログイン・新規登録</h2><p class="note">メールアドレスにログイン用のリンクを送ります。パスワードは不要です。</p>
+      <input type="email" id="emailIn" placeholder="メールアドレス" autocomplete="email"><button class="btn wide" id="loginBtn">ログイン用のメールを送る</button><p class="note" id="loginMsg"></p></div>`;
+    $("#loginBtn").onclick = async()=>{
+      const email=$("#emailIn").value.trim(); if(!/^\S+@\S+\.\S+$/.test(email)) return $("#loginMsg").textContent="メールアドレスを確認してください。";
+      $("#loginBtn").disabled=true;
+      const {error}=await sb.auth.signInWithOtp({email, options:{emailRedirectTo: location.origin+location.pathname}});
+      $("#loginBtn").disabled=false;
+      $("#loginMsg").textContent = error ? "送れませんでした。少し時間をおいてお試しください。" : `${email} にメールを送りました。メールのリンクを開くとログインできます。`;
+    };
+    return;
+  }
+  const pr=me.profile;
+  el.innerHTML=`<div class="panel">
+      <div class="prof"><label style="cursor:pointer">${avatar(pr.avatar_path,pr.dog_name||pr.nickname)}<input type="file" id="avIn" accept="image/*" hidden></label>
+        <div><h2>${esc(pr.dog_name||"わんこの名前を登録しよう")}</h2><p class="note">写真をタップすると変更できます</p></div></div>
+      <label class="fld">わんこの名前<input type="text" id="pDog" maxlength="30" value="${esc(pr.dog_name)}"></label>
+      <label class="fld">犬種<input type="text" id="pBreed" maxlength="40" value="${esc(pr.dog_breed)}" placeholder="例：柴犬、ミックス"></label>
+      <label class="fld">飼い主のニックネーム<input type="text" id="pNick" maxlength="30" value="${esc(pr.nickname)}"></label>
+      <button class="btn" id="saveP">保存する</button></div>
+    <div class="row2"><button class="btn ghost" id="myPage" style="flex:1">自分の投稿を見る</button><button class="btn ghost" id="logout" style="flex:1">ログアウト</button></div>
+    <p class="note">ログイン中：${esc(me.email||"")}</p>`;
+  $("#saveP").onclick = async()=>{
+    const upd={dog_name:$("#pDog").value.trim(),dog_breed:$("#pBreed").value.trim(),nickname:$("#pNick").value.trim()||"飼い主さん"};
+    const {error}=await sb.from("profiles").update(upd).eq("id",me.id);
+    if(error) return toast("保存できませんでした"); Object.assign(me.profile,upd); renderMe(); toast("保存しました");
+  };
+  $("#avIn").onchange = async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const blob=await shrink(f,400), path=`${me.id}/avatar-${Date.now()}.jpg`;
+    const up=await sb.storage.from("photos").upload(path,blob,{contentType:"image/jpeg"}); if(up.error) return toast("写真を送れませんでした");
+    const old=me.profile.avatar_path;
+    await sb.from("profiles").update({avatar_path:path}).eq("id",me.id); me.profile.avatar_path=path;
+    if(old) sb.storage.from("photos").remove([old]);
+    renderMe(); toast("変更しました");
+  };
+  $("#myPage").onclick = ()=>openUser(me.id);
+  $("#logout").onclick = async()=>{ await sb.auth.signOut(); };
+}
+
+/* ================= 画面切り替え ================= */
+function go(tab){
+  ["home","map","feed","me"].forEach(t=>$("#tab-"+t).hidden = t!==tab);
+  document.querySelectorAll("nav button").forEach(b=> b.dataset.tab===tab ? b.setAttribute("aria-current","page") : b.removeAttribute("aria-current"));
+  $("#fab").hidden = !(READY && (tab==="feed"||tab==="map"));
+  if(tab==="map") setTimeout(initMap,0);
+  if(tab==="feed") loadFeed();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.tab));
+
+/* ================= 起動 ================= */
+renderHome(); renderMe();
+if(ls.get("sanpo-geo-ok",false)) locate(false);
+if(READY){
+  sb.auth.getSession().then(({data})=>loadMe(data.session));
+  sb.auth.onAuthStateChange((ev,session)=>{ if(ev==="SIGNED_IN"||ev==="SIGNED_OUT") loadMe(session); });
+}
+</script>
+</body>
+</html>
