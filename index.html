@@ -99,6 +99,27 @@ textarea{resize:vertical;min-height:80px}
 .pill .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:-1px}
 .pin{width:52px;height:52px;border-radius:14px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);background:#ccc center/cover no-repeat;position:relative}
 .pin b{position:absolute;right:-8px;top:-8px;background:var(--accent);color:var(--on-accent);font-size:.72rem;min-width:22px;height:22px;border-radius:11px;display:grid;place-items:center;padding:0 5px;border:2px solid #fff}
+.maplayers{position:fixed;top:calc(60px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:500;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none}
+.maplayers>*{pointer-events:auto}
+.maplayers .chip{box-shadow:0 2px 8px rgba(0,0,0,.15);font-weight:700}
+.maplayers .chip[data-l="lost"][aria-pressed="true"]{background:#C8553D;border-color:#C8553D;color:#fff}
+.maphint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));z-index:500;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;width:max-content;max-width:calc(100% - 120px)}
+.maphint>*{pointer-events:auto}
+.maphint small{background:rgba(255,253,247,.95);border-radius:14px;padding:5px 12px;font-size:.8rem;box-shadow:0 2px 8px rgba(0,0,0,.15);text-align:center}
+.spin{width:34px;height:34px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:grid;place-items:center;color:#fff;position:relative}
+.spin.park{background:#3F7A4A}.spin.cafe{background:#B07A3B}
+.spin svg{width:18px;height:18px}
+.spin i{position:absolute;right:-12px;top:-9px;font-style:normal;background:var(--sun);color:var(--ink);font-size:.66rem;font-weight:700;border-radius:9px;padding:1px 5px;border:1.5px solid #fff;white-space:nowrap}
+.lpin{width:38px;height:38px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:#C8553D;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);display:grid;place-items:center}
+.lpin.found{background:#2F6FB0}
+.lpin b{transform:rotate(45deg);color:#fff;font-size:.8rem}
+.stars{display:inline-flex;gap:1px;color:#E0A526}
+.starpick{display:flex;gap:6px}.starpick button{font-size:1.9rem;line-height:1;border:0;background:none;color:var(--line);cursor:pointer;padding:2px}
+.starpick button.on{color:#E0A526}
+.rv{display:flex;gap:10px;align-items:flex-start}.rv p{margin:2px 0 0}
+.lostimg{width:100%;max-height:360px;object-fit:cover;border-radius:18px;background:var(--line)}
+.tag{display:inline-block;font-size:.75rem;font-weight:700;border-radius:99px;padding:2px 10px;color:#fff;background:#C8553D}.tag.found{background:#2F6FB0}.tag.done{background:var(--muted)}
+input[type=datetime-local]{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:2px solid var(--line);border-radius:16px;background:#FFFDF7;color:var(--ink)}
 .me-dot{width:18px;height:18px;border-radius:50%;background:#2B7BE4;border:3px solid #fff;box-shadow:0 0 0 6px rgba(43,123,228,.25)}
 
 .seg{display:flex;background:var(--card);border-radius:12px;padding:4px;gap:4px}
@@ -252,6 +273,12 @@ nav button[aria-current="page"]{color:var(--accent)}
     <button class="pill" id="mapStatus"><span class="dot" style="--c:var(--muted)"></span>現在地の判定</button>
     <button class="pill" id="mapLocate">現在地へ</button>
   </div>
+  <div class="maplayers" id="mapLayers">
+    <button class="chip" data-l="posts" aria-pressed="true">うちの子</button>
+    <button class="chip" data-l="spots" aria-pressed="false">ドッグラン・カフェ</button>
+    <button class="chip" data-l="lost" aria-pressed="false">迷子・保護</button>
+  </div>
+  <div class="maphint" id="mapHint"></div>
 </main>
 
 <main class="view" id="tab-feed" hidden>
@@ -793,16 +820,18 @@ async function searchCity(){
 $("#cityBtn").onclick=searchCity; $("#cityInput").onkeydown=e=>{ if(e.key==="Enter") searchCity(); };
 
 /* ================= 地図 ================= */
-let map=null, meMarker=null, postLayer=null;
+let map=null, meMarker=null, postLayer=null, spotLayer=null, lostLayer=null;
 const HOUR = 3600e3;
 function initMap(){
   if(map){ map.invalidateSize(); return; }
   map = L.map("map",{zoomControl:false}).setView(pos?[pos.lat,pos.lon]:[35.68,139.76], pos?14:11);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
   postLayer = L.layerGroup().addTo(map);
+  spotLayer = L.layerGroup().addTo(map);
+  lostLayer = L.layerGroup().addTo(map);
   if(pos) placeMe();
-  let t; map.on("moveend",()=>{ clearTimeout(t); t=setTimeout(loadMapPosts,300); });
-  loadMapPosts();
+  let t; map.on("moveend",()=>{ clearTimeout(t); t=setTimeout(refreshMap,300); });
+  paintLayerChips(); refreshMap();
 }
 function placeMe(){
   if(!map||!pos) return;
@@ -814,6 +843,7 @@ $("#mapStatus").onclick = ()=>go("home");
 function updateMapStatus(){ if(!weather) return; const h=weather.hours[0]; $("#mapStatus").innerHTML = `<span class="dot" style="--c:${LV[h.level].c}"></span>今：${LV[h.level].name}`; }
 async function loadMapPosts(){
   if(!READY||!map) return;
+  if(!layers.posts){ postLayer.clearLayers(); return; }
   const b = map.getBounds();
   // 投稿から1時間たったものだけを地図に出す（今どこにいるかが分からないように）
   const {data} = await sb.from("posts").select("id,image_path,lat_grid,lon_grid,area_name,created_at,profiles!posts_user_id_fkey!inner(is_private)")
@@ -832,6 +862,198 @@ async function loadMapPosts(){
 async function openArea(list){
   const posts = await fetchPosts(q=>q.in("id",list.map(p=>p.id)));
   openSheet(`<div class="sheethead"><h2>${esc(list[0].area_name||"このあたり")}のうちの子</h2><button class="x" data-close>×</button></div><div class="feed">${posts.map(postCard).join("")}</div>`);
+}
+
+/* ================= 地図の表示切り替え ================= */
+const layers = Object.assign({posts:true, spots:false, lost:false}, ls.get("sanpo-layers", {}));
+function paintLayerChips(){
+  $("#mapLayers").querySelectorAll("[data-l]").forEach(b=>b.setAttribute("aria-pressed", !!layers[b.dataset.l]));
+}
+$("#mapLayers").querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{
+  const k=b.dataset.l; layers[k]=!layers[k]; ls.set("sanpo-layers", layers); paintLayerChips(); refreshMap();
+});
+function refreshMap(){ loadMapPosts(); loadSpots(); loadLost(); paintMapHint(); }
+function paintMapHint(){
+  const el=$("#mapHint"); if(!el||!map) return;
+  let h="";
+  if(layers.spots && map.getZoom()<13) h+=`<small>ドッグラン・カフェは、もう少し地図を大きくすると出ます</small>`;
+  if(layers.lost) h+=`<button class="pill" id="lostNew" style="background:#C8553D;color:#fff">＋ 迷子・保護を知らせる</button>`;
+  el.innerHTML=h;
+  const b=$("#lostNew"); if(b) b.onclick=openLostForm;
+}
+
+/* ================= ドッグラン・カフェ ================= */
+const ICON_PARK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/></svg>`;
+const ICON_CAFE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3v3M12 3v3"/></svg>`;
+const spotCache = {}; let spotReq = 0;
+const starStr = n => "★".repeat(Math.round(n)) + "☆".repeat(5-Math.round(n));
+async function loadSpots(){
+  if(!map) return;
+  if(!layers.spots || map.getZoom()<13){ spotLayer.clearLayers(); return; }
+  const b=map.getBounds(), r=v=>Math.round(v*50)/50; // 約2km単位でまとめて読み込む（同じ所を何度も聞かない）
+  const s=r(b.getSouth())-0.02, w=r(b.getWest())-0.02, n=r(b.getNorth())+0.02, e=r(b.getEast())+0.02;
+  const key=[s,w,n,e].map(v=>v.toFixed(2)).join(",");
+  const my=++spotReq;
+  let spots=spotCache[key];
+  if(!spots){
+    const q=`[out:json][timeout:20];(nwr["leisure"="dog_park"](${key});nwr["amenity"~"^(cafe|restaurant)$"]["dog"~"^(yes|leashed|outside)$"](${key}););out center 200;`;
+    try{
+      const res=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
+      const j=await res.json();
+      spots=(j.elements||[]).map(x=>({
+        id:`${x.type}/${x.id}`, lat:x.lat??x.center?.lat, lon:x.lon??x.center?.lon,
+        type:x.tags?.leisure==="dog_park"?"dogpark":"cafe",
+        name:(x.tags?.["name:ja"]||x.tags?.name||(x.tags?.leisure==="dog_park"?"ドッグラン":"ペット可のお店")).slice(0,80),
+        dog:x.tags?.dog||"", hours:x.tags?.opening_hours||""
+      })).filter(x=>x.lat!=null);
+      spotCache[key]=spots;
+    }catch(err){ if(my===spotReq) toast("お店の情報を読み込めませんでした"); return; }
+  }
+  if(my!==spotReq || !layers.spots) return;
+  const stats={};
+  if(READY && spots.length){
+    const {data}=await sb.from("spot_reviews").select("osm_id,stars").in("osm_id",spots.map(x=>x.id).slice(0,200));
+    (data||[]).forEach(r=>{ const t=stats[r.osm_id]=stats[r.osm_id]||{n:0,sum:0}; t.n++; t.sum+=r.stars; });
+  }
+  if(my!==spotReq) return;
+  spotLayer.clearLayers();
+  spots.forEach(x=>{
+    const st=stats[x.id];
+    const icon=L.divIcon({className:"",html:`<div class="spin ${x.type==="dogpark"?"park":"cafe"}">${x.type==="dogpark"?ICON_PARK:ICON_CAFE}${st?`<i>★${(st.sum/st.n).toFixed(1)}</i>`:""}</div>`,iconSize:[34,34],iconAnchor:[17,17]});
+    L.marker([x.lat,x.lon],{icon}).addTo(spotLayer).on("click",()=>openSpot(x));
+  });
+}
+async function openSpot(x){
+  const sh=openSheet(`<div class="sheethead"><h2>${esc(x.name)}</h2><button class="x" data-close>×</button></div><div id="spotBody"><p class="note">読み込み中…</p></div>`);
+  const {data}=await sb.from("spot_reviews").select("id,user_id,stars,body,created_at,p:profiles!spot_reviews_user_id_fkey(nickname,dog_name,avatar_path,is_official)").eq("osm_id",x.id).order("created_at",{ascending:false}).limit(100);
+  const list=data||[], mine=me?list.find(r=>r.user_id===me.id):null;
+  const avg=list.length?list.reduce((a,r)=>a+r.stars,0)/list.length:0;
+  const kind = x.type==="dogpark" ? "ドッグラン" : (x.dog==="outside"?"テラス席なら犬OKのお店":x.dog==="leashed"?"リードをつければ犬OKのお店":"犬OKのお店");
+  const body=sh.querySelector("#spotBody");
+  body.innerHTML=`<p style="margin:0">${kind}${x.hours?`<br><small class="note">営業時間（地図の情報）：${esc(x.hours)}</small>`:""}</p>
+    <p style="margin:8px 0">${list.length?`<span class="stars">${starStr(avg)}</span> <b>${avg.toFixed(1)}</b>（${list.length}件）`:`<span class="note">まだ口コミがありません。</span>`}</p>
+    <div class="panel" style="gap:10px"><b>${mine?"あなたの口コミ":"口コミを書く"}</b>
+      ${me?`<div class="starpick" id="spStars">${[1,2,3,4,5].map(i=>`<button data-s="${i}" aria-label="星${i}つ">★</button>`).join("")}</div>
+      <textarea id="spBody" maxlength="200" placeholder="例：小型犬エリアが分かれていて安心。水飲み場あり">${esc(mine?.body||"")}</textarea>
+      <div class="row2"><button class="btn" id="spSave">${mine?"書き直す":"投稿する"}</button>${mine?`<button class="btn ghost" id="spDel" style="flex:0 0 auto">消す</button>`:""}</div>`
+      :`<p class="note" style="margin:0">ログインすると口コミを書けます。</p><button class="btn ghost" id="spLogin">ログインする</button>`}
+    </div>
+    <div class="cmts">${list.map(r=>`<div class="rv">${avatar(r.p?.avatar_path,r.p?.dog_name||r.p?.nickname)}<div style="flex:1;min-width:0"><button class="linkbtn" data-uid="${r.user_id}" style="padding:0"><b>${esc(r.p?.dog_name||r.p?.nickname||"飼い主さん")}</b>${r.p?.is_official?OFFICIAL:""}</button> <span class="stars" style="font-size:.85rem">${starStr(r.stars)}</span> <small class="note">${ago(r.created_at)}</small>${r.body?`<p>${esc(r.body)}</p>`:""}${me?.admin&&r.user_id!==me.id?`<button class="linkbtn" data-rdel="${r.id}" style="color:var(--danger);padding:0">削除（管理者）</button>`:""}</div></div>`).join("")}</div>
+    <p class="note">お店の情報はOpenStreetMapのものです。お出かけ前に、お店のホームページなどで最新の情報を確かめてください。</p>`;
+  body.querySelectorAll("[data-uid]").forEach(b=>b.onclick=()=>openUser(b.dataset.uid));
+  body.querySelectorAll("[data-rdel]").forEach(b=>b.onclick=async()=>{ const {error}=await sb.from("spot_reviews").delete().eq("id",+b.dataset.rdel); toast(error?"削除できませんでした":"削除しました"); openSpot(x); loadSpots(); });
+  const lg=body.querySelector("#spLogin"); if(lg) lg.onclick=needLogin;
+  if(!me) return;
+  let stars=mine?.stars||0;
+  const paint=()=>body.querySelectorAll("[data-s]").forEach(b=>b.classList.toggle("on", +b.dataset.s<=stars));
+  body.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{ stars=+b.dataset.s; paint(); }); paint();
+  body.querySelector("#spSave").onclick=async()=>{
+    if(!stars) return toast("星の数を選んでください");
+    const {error}=await sb.from("spot_reviews").upsert({osm_id:x.id, spot_name:x.name, spot_type:x.type, lat:+x.lat.toFixed(5), lon:+x.lon.toFixed(5), user_id:me.id, stars, body:body.querySelector("#spBody").value.trim(), created_at:new Date().toISOString()},{onConflict:"osm_id,user_id"});
+    if(error) return toast("投稿できませんでした");
+    toast("口コミを投稿しました"); openSpot(x); loadSpots();
+  };
+  const del=body.querySelector("#spDel"); if(del) del.onclick=async()=>{ await sb.from("spot_reviews").delete().eq("id",mine.id); toast("口コミを消しました"); openSpot(x); loadSpots(); };
+}
+
+/* ================= 迷子・保護の掲示板 ================= */
+const LOST_SP = {dog:"犬", cat:"猫", other:"その他"};
+const round3 = v => Math.round(v*1000)/1000; // 約100m単位
+async function loadLost(){
+  if(!READY||!map) return;
+  if(!layers.lost){ lostLayer.clearLayers(); return; }
+  const b=map.getBounds();
+  const {data}=await sb.from("lost_pets").select("*").eq("status","open").gt("expires_at",new Date().toISOString())
+    .gte("lat",b.getSouth()-0.02).lte("lat",b.getNorth()+0.02).gte("lon",b.getWest()-0.02).lte("lon",b.getEast()+0.02)
+    .order("created_at",{ascending:false}).limit(200);
+  lostLayer.clearLayers();
+  (data||[]).forEach(x=>{
+    const icon=L.divIcon({className:"",html:`<div class="lpin ${x.kind==="found"?"found":""}"><b>${x.kind==="found"?"保":"迷"}</b></div>`,iconSize:[38,38],iconAnchor:[19,38]});
+    L.marker([+x.lat,+x.lon],{icon,zIndexOffset:500}).addTo(lostLayer).on("click",()=>openLost(x.id));
+  });
+}
+async function openLost(id){
+  const sh=openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div><div id="lostBody"><p class="note">読み込み中…</p></div>`);
+  const {data:x}=await sb.from("lost_pets").select("*,p:profiles!lost_pets_user_id_fkey(nickname,dog_name,avatar_path,is_official)").eq("id",id).maybeSingle();
+  const body=sh.querySelector("#lostBody");
+  if(!x){ body.innerHTML=`<p class="note">この投稿は見られなくなりました。</p>`; return; }
+  const mine=me&&x.user_id===me.id, done=x.status==="resolved";
+  const seen=new Date(x.seen_at);
+  body.innerHTML=`<p style="margin:0 0 8px"><span class="tag ${done?"done":x.kind==="found"?"found":""}">${done?"解決しました":x.kind==="found"?"保護しています":"さがしています"}</span> ${LOST_SP[x.species]||""}${x.name?`・<b>${esc(x.name)}</b>`:""}</p>
+    ${x.image_path?`<img class="lostimg" src="${photo(x.image_path)}" alt="${x.kind==="found"?"保護した子":"さがしている子"}の写真">`:""}
+    <p style="margin:10px 0 0">${x.kind==="found"?"保護した":"見失った"}場所：<b>${esc(x.area_name||"このあたり")}</b>（地図のピンの約100m以内）<br>日時：${seen.getMonth()+1}月${seen.getDate()}日 ${String(seen.getHours()).padStart(2,"0")}:${String(seen.getMinutes()).padStart(2,"0")}ごろ</p>
+    ${x.description?`<p class="cap" style="white-space:pre-wrap">${esc(x.description)}</p>`:""}
+    <p class="note">投稿：<button class="linkbtn" data-uid="${x.user_id}" style="padding:0">${esc(x.p?.dog_name||x.p?.nickname||"飼い主さん")}</button>・${ago(x.created_at)}・${new Date(x.expires_at)>new Date()?`${Math.max(1,Math.ceil((new Date(x.expires_at)-Date.now())/86400e3))}日後に自動で消えます`:"掲載期間が終わりました"}</p>
+    <div class="menu">
+      ${mine?`${done?"":`<button id="lsDone">${x.kind==="found"?"飼い主さんが見つかった":"見つかった！"}（解決済みにする）</button>`}<button class="danger" id="lsDel">この投稿を消す</button>`
+        :`<button id="lsDm">${x.kind==="found"?"うちの子かもしれない（メッセージ）":"見かけた・保護した（メッセージ）"}</button><button id="lsRep">この投稿を通報する</button>${me?.admin?`<button class="danger" id="lsAdm">削除（管理者）</button>`:""}`}
+    </div>
+    <p class="note">${x.kind==="found"?"保護した場合は、警察署や保健所・動物愛護センターにも届け出てください。":"警察署、保健所・動物愛護センターにも届け出ておくと見つかりやすくなります。"}会うときは人の多い場所にし、お金の請求には応じないでください。</p>`;
+  body.querySelectorAll("[data-uid]").forEach(b=>b.onclick=()=>openUser(b.dataset.uid));
+  const q=s=>body.querySelector(s);
+  if(q("#lsDm")) q("#lsDm").onclick=()=>openChatWith(x.user_id);
+  if(q("#lsRep")) q("#lsRep").onclick=()=>me?reportUser(x.user_id, x.p?.dog_name||x.p?.nickname):needLogin();
+  if(q("#lsDone")) q("#lsDone").onclick=async()=>{ const {error}=await sb.from("lost_pets").update({status:"resolved"}).eq("id",x.id); if(error) return toast("変更できませんでした"); toast("よかったです！解決済みにしました"); closeSheet(); loadLost(); };
+  const remove=async()=>{ const {error}=await sb.from("lost_pets").delete().eq("id",x.id); if(error) return toast("消せませんでした"); if(x.image_path) await sb.storage.from("photos").remove([x.image_path]); toast("消しました"); closeSheet(); loadLost(); };
+  if(q("#lsDel")) q("#lsDel").onclick=remove;
+  if(q("#lsAdm")) q("#lsAdm").onclick=remove;
+}
+function openLostForm(){
+  if(!me) return needLogin();
+  let kind="lost", species="dog", blob=null, where="here";
+  const now=new Date(Date.now()-new Date().getTimezoneOffset()*60e3).toISOString().slice(0,16);
+  const sh=openSheet(`<div class="sheethead"><h2>迷子・保護を知らせる</h2><button class="x" data-close>×</button></div>
+    <div class="seg" id="lfKind"><button data-k="lost" aria-pressed="true">うちの子が迷子</button><button data-k="found" aria-pressed="false">迷子の子を保護した</button></div>
+    <div class="grp"><span>種類</span><div class="chips" id="lfSp">${Object.entries(LOST_SP).map(([k,v])=>`<button class="chip" data-sp="${k}" aria-pressed="${k==="dog"}">${v}</button>`).join("")}</div></div>
+    <input type="text" id="lfName" maxlength="30" placeholder="名前（例：ぽち）">
+    <label class="pick" id="lfPick" style="aspect-ratio:auto;min-height:120px"><span>タップして写真を選ぶ（なくてもOK）</span><input type="file" id="lfFile" accept="image/*" hidden></label>
+    <textarea id="lfDesc" maxlength="400" placeholder="特徴（例：茶色の柴犬、赤い首輪、人なつこい。○○公園の近くで見失いました）"></textarea>
+    <div class="grp"><span id="lfWhenLbl">見失った日時</span><input type="datetime-local" id="lfWhen" value="${now}" max="${now}"></div>
+    <div class="grp"><span id="lfWhereLbl">見失った場所</span><div class="chips" id="lfWhere"><button class="chip" data-w="here" aria-pressed="true">今いる場所</button><button class="chip" data-w="center" aria-pressed="false">地図の真ん中</button></div><small class="note" id="lfWhereNote">約100m単位にぼかして登録します。</small></div>
+    <p class="note">ご自宅の場所が分かる写真や説明は避けてください。30日たつと自動で消えます。投稿すると<button class="linkbtn" data-legal="terms">利用規約</button>に同意したものとみなします。</p>
+    <button class="btn wide" id="lfSave">知らせる</button>`);
+  const q=s=>sh.querySelector(s);
+  const paint=()=>{
+    q("#lfKind").querySelectorAll("[data-k]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===kind));
+    q("#lfSp").querySelectorAll("[data-sp]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sp===species));
+    q("#lfWhere").querySelectorAll("[data-w]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.w===where));
+    q("#lfName").style.display = kind==="lost" ? "" : "none";
+    q("#lfWhenLbl").textContent = kind==="lost" ? "見失った日時" : "保護した日時";
+    q("#lfWhereLbl").textContent = kind==="lost" ? "見失った場所" : "保護した場所";
+    q("#lfWhereNote").textContent = where==="center" ? "先に地図を動かして、場所を真ん中に合わせてください。約100m単位にぼかして登録します。" : "約100m単位にぼかして登録します。";
+  };
+  q("#lfKind").querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ kind=b.dataset.k; paint(); });
+  q("#lfSp").querySelectorAll("[data-sp]").forEach(b=>b.onclick=()=>{ species=b.dataset.sp; paint(); });
+  q("#lfWhere").querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{ where=b.dataset.w; paint(); });
+  q("#lfFile").onchange=async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    try{ blob=await shrink(f); }catch(err){ return toast("この写真は読み込めませんでした"); }
+    const pk=q("#lfPick"); pk.innerHTML=`<img class="preview" src="${URL.createObjectURL(blob)}" alt="選んだ写真">`; pk.style.padding="0"; pk.style.border="0";
+  };
+  paint();
+  q("#lfSave").onclick=async()=>{
+    const btn=q("#lfSave");
+    let ll;
+    if(where==="center"&&map){ const c=map.getCenter(); ll={lat:c.lat,lon:c.lng}; }
+    else { try{ if(!pos) pos=await getPosition(); ll={lat:pos.lat,lon:pos.lon}; }catch(e){ return toast("位置情報を使えません。「地図の真ん中」を選んでください"); } }
+    const when=q("#lfWhen").value ? new Date(q("#lfWhen").value) : new Date();
+    if(when>new Date(Date.now()+60e3)) return toast("日時が未来になっています");
+    btn.disabled=true; btn.textContent="送っています…";
+    const la=round3(ll.lat), lo=round3(ll.lon);
+    let path=null;
+    if(blob){
+      path=`${me.id}/lost-${Date.now()}.jpg`;
+      const up=await sb.storage.from("photos").upload(path, blob, {contentType:"image/jpeg"});
+      if(up.error){ btn.disabled=false; btn.textContent="知らせる"; return toast("写真を送れませんでした"); }
+    }
+    const row={kind, species, name:kind==="lost"?q("#lfName").value.trim():"", description:q("#lfDesc").value.trim(), image_path:path, lat:la, lon:lo, area_name:await areaName(la,lo,14), seen_at:when.toISOString()};
+    const {data,error}=await sb.from("lost_pets").insert(row).select("id").single();
+    if(error){ if(path) await sb.storage.from("photos").remove([path]); btn.disabled=false; btn.textContent="知らせる"; return toast("送れませんでした"); }
+    closeSheet(); toast(kind==="lost"?"知らせました。早く見つかりますように":"知らせました。ありがとうございます");
+    if(!layers.lost){ layers.lost=true; ls.set("sanpo-layers",layers); paintLayerChips(); }
+    go("map"); if(map){ map.setView([la,lo], Math.max(map.getZoom(),14)); loadLost(); paintMapHint(); }
+    setTimeout(()=>openLost(data.id),400);
+  };
 }
 
 /* ================= 投稿 ================= */
