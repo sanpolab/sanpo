@@ -295,7 +295,14 @@ const avatar = (p, name) => p ? `<span class="av" style="background-image:url('$
 const petWord = t => t==="cat" ? "ねこ" : "わんこ";
 
 let me = null, pos = null, weather = null, rawWeather = null;
-let pet = Object.assign({species:"dog", size:"small", age:"adult", brachy:"no"}, ls.get("sanpo-profile", {}));
+const PET_DEFAULT = {name:"", species:"dog", size:"small", age:"adult", brachy:"no", coat:"mid", hair:"short", conds:[]};
+const newPet = (o={}) => Object.assign({lid: Math.random().toString(36).slice(2)}, PET_DEFAULT, {conds:[]}, o);
+let pets = ls.get("sanpo-pets", null);
+if(!Array.isArray(pets) || !pets.length) pets = [newPet(ls.get("sanpo-profile", {}))];
+pets = pets.map(p=>Object.assign({}, PET_DEFAULT, p, {conds: Array.isArray(p.conds)?p.conds:[]}));
+let petIdx = Math.min(ls.get("sanpo-pet-idx",0), pets.length-1);
+let pet = pets[petIdx];
+function savePetsLocal(){ ls.set("sanpo-pets", pets); ls.set("sanpo-pet-idx", petIdx); }
 let walkStart = ls.get("sanpo-walk", null);
 
 /* ================= 判定 ================= */
@@ -310,8 +317,12 @@ const wbgt = (t,rh,sw,ws) => 0.735*t + 0.0374*rh + 0.00292*t*rh + 7.619*sw - 4.5
 function windChill(t, ws){ const v=ws*3.6; if(t>10||v<=4.8) return t; const p=Math.pow(v,0.16); return 13.12+0.6215*t-11.37*p+0.3965*t*p; }
 function evaluate(all){
   const cat = pet.species==="cat", size = cat ? "small" : pet.size;
-  const heatOff = (pet.brachy==="yes"?2:0) + (pet.age!=="adult"?1:0) + (size==="small"?0.5:0);
-  const coldOff = (size==="small"?3:size==="large"?-3:0) + (pet.age!=="adult"?2:0);
+  const cd = c => (pet.conds||[]).includes(c);
+  const heatOff = (pet.brachy==="yes"?2:0) + (pet.age!=="adult"?1:0) + (size==="small"?0.5:0)
+    + (pet.coat==="dark"?1:0) + (pet.hair!=="short"?1:0) + (cd("heart")||cd("breath")?1.5:0) + (cd("obese")?1:0);
+  const coldOff = (size==="small"?3:size==="large"?-3:0) + (pet.age!=="adult"?2:0)
+    + (pet.hair==="short"?1.5:pet.hair==="double"?-2:0) + (cd("heart")||cd("joint")?1.5:0);
+  const month = new Date().getMonth()+1;
   let prevD = 0;
   return all.map((h,i)=>{
     const sw = j => all[Math.max(0,i-j)].sw;
@@ -339,20 +350,40 @@ function evaluate(all){
     if(s48>0 && h.temp<=6) R.push([1,"雪のあとは融雪剤がまかれていることがあります。帰ったら足をぬるま湯で洗いましょう。"]);
     if(h.precip>=10) R.push([2,`強い雨（${h.precip}mm）が予想されています。`]);
     else if(h.precip>=2) R.push([1,`雨が降っています（${h.precip}mm）。`]);
+    if(h.code>=95) R.push([2,"雷の予報です。雷が苦手な子は急に走り出すことがあるので、リードをしっかり持って早めに帰りましょう。"]);
+    if(h.pm25!=null){
+      const sens = cd("breath")||pet.brachy==="yes"||pet.age==="senior";
+      if(h.pm25>=70) R.push([2,`PM2.5が多い予報です（${Math.round(h.pm25)}µg/m³）。散歩は短めにしましょう。`]);
+      else if(h.pm25>=35) R.push([sens?2:1,`PM2.5がやや多めです（${Math.round(h.pm25)}µg/m³）。${sens?"呼吸器の弱い子は短めに。":"長時間の散歩は控えめに。"}`]);
+    }
+    if(h.dust!=null){
+      if(h.dust>=300) R.push([2,"黄砂が多く飛んでいます。目や鼻を守るため、短めにして帰ったら体をふきましょう。"]);
+      else if(h.dust>=100) R.push([1,"黄砂が飛んでいます。帰ったら顔と体をやさしくふいてあげましょう。"]);
+    }
+    if(h.uv!=null && h.uv>=6){
+      const thin = pet.coat==="light" || pet.hair==="short";
+      R.push([h.uv>=8&&thin?1:0, `紫外線が強い時間です（UV指数${Math.round(h.uv)}）。${thin?"毛の色が明るい子や短毛の子は、鼻や耳が日焼けしやすいので日かげを選んで。":"日かげのコースを選びましょう。"}`]);
+    }
     const level = R.reduce((m,r)=>Math.max(m,r[0]),0);
     if(!R.length) R.push([0,"暑さ、寒さ、路面ともに問題ありません。"]);
     if(h.hour<5||h.hour>=19) R.push([0,"暗い時間帯です。光るリードや反射材があると安全です。"]);
     if(cat) R.push([0,"猫は抜けにくいハーネスを使い、驚いたときにすぐ抱き上げられるようにしましょう。"]);
+    if(month>=2 && month<=4 && h.hour>=8 && h.hour<=18) R.push([0,"スギ・ヒノキの花粉の季節です。目のかゆみやくしゃみが出る子は、帰ったら体をふいてあげましょう。"]);
     R.sort((a,b)=>b[0]-a[0]);
     return {level,asph,conc,grass,w,wc,reasons:R};
   });
 }
 async function loadWeather(lat, lon, place){
   try{
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&hourly=temperature_2m,relative_humidity_2m,shortwave_radiation,wind_speed_10m,precipitation,snowfall,weather_code&wind_speed_unit=ms&timezone=auto&past_days=2&forecast_days=2`);
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&hourly=temperature_2m,relative_humidity_2m,shortwave_radiation,wind_speed_10m,precipitation,snowfall,weather_code,uv_index&wind_speed_unit=ms&timezone=auto&past_days=2&forecast_days=2`);
     if(!r.ok) throw 0;
     const j = await r.json(), H = j.hourly;
-    const all = H.time.map((t,i)=>({t,hour:+t.slice(11,13),temp:H.temperature_2m[i],rh:H.relative_humidity_2m[i],sw:H.shortwave_radiation[i]||0,ws:H.wind_speed_10m[i]||0,precip:H.precipitation[i]||0,snow:H.snowfall[i]||0,code:H.weather_code[i]}));
+    const all = H.time.map((t,i)=>({t,hour:+t.slice(11,13),temp:H.temperature_2m[i],rh:H.relative_humidity_2m[i],sw:H.shortwave_radiation[i]||0,ws:H.wind_speed_10m[i]||0,precip:H.precipitation[i]||0,snow:H.snowfall[i]||0,code:H.weather_code[i],uv:H.uv_index?H.uv_index[i]:null,pm25:null,dust:null}));
+    try{
+      const aq = await (await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&hourly=pm2_5,dust&timezone=auto&past_days=2&forecast_days=2`)).json();
+      const byT = {}; (aq.hourly?.time||[]).forEach((t,i)=>byT[t]=i);
+      all.forEach(h=>{ const i=byT[h.t]; if(i!=null){ h.pm25=aq.hourly.pm2_5[i]; h.dust=aq.hourly.dust[i]; } });
+    }catch(e){}
     const key = new Date(Date.now()+j.utc_offset_seconds*1000).toISOString().slice(0,13);
     let idx = all.findIndex(x=>x.t.slice(0,13)===key); if(idx<0) idx = Math.min(48, all.length-24);
     rawWeather = {all, idx, place}; weather = null;
@@ -495,17 +526,56 @@ function renderHome(){
 function renderPetChips(){
   const g=(key,label,opts)=>`<div class="grp"><span>${label}</span><div class="chips">${opts.map(([v,t])=>`<button class="chip" data-k="${key}" data-v="${v}" aria-pressed="${pet[key]===v}">${t}</button>`).join("")}</div></div>`;
   const cat = pet.species==="cat";
-  $("#petChips").innerHTML = g("species","種類",[["dog","犬"],["cat","猫"]])
+  const CONDS = [["heart","心臓"],["breath","呼吸器"],["joint","関節・足腰"],["obese","太りぎみ"]];
+  $("#petChips").innerHTML =
+    `<div class="chips" id="petTabs">${pets.map((p,i)=>`<button class="chip" data-pi="${i}" aria-pressed="${i===petIdx}">${esc(p.name||(p.species==="cat"?"ねこ":"いぬ")+(pets.length>1?" "+(i+1):""))}</button>`).join("")}${pets.length<6?`<button class="chip" id="petAdd" aria-label="うちの子を追加">＋ 追加</button>`:""}</div>
+    <label class="fld">名前<input type="text" id="petName" maxlength="20" value="${esc(pet.name)}" placeholder="例：ぽち"></label>`
+    + g("species","種類",[["dog","犬"],["cat","猫"]])
     + (cat ? "" : g("size","体の大きさ",[["small","小型犬"],["medium","中型犬"],["large","大型犬"]]))
     + g("age","年齢",cat?[["puppy","子猫"],["adult","成猫"],["senior","シニア"]]:[["puppy","子犬"],["adult","成犬"],["senior","シニア"]])
-    + g("brachy",cat?"鼻の短い猫種（ペルシャ、エキゾチックなど）":"鼻の短い犬種（パグ、フレブル、シーズーなど）",[["no","ちがう"],["yes","そう"]]);
-  $("#petChips").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{
-    pet[c.dataset.k]=c.dataset.v; ls.set("sanpo-profile",pet); computeWeather(); renderPetChips(); savePetToProfile();
-  });
+    + g("brachy",cat?"鼻の短い猫種（ペルシャ、エキゾチックなど）":"鼻の短い犬種（パグ、フレブル、シーズーなど）",[["no","ちがう"],["yes","そう"]])
+    + g("coat","毛の色",[["light","白・明るい色"],["mid","茶・中くらい"],["dark","黒・濃い色"]])
+    + g("hair","毛の長さ",[["short","短毛"],["long","長毛"],["double","ダブルコート（柴犬など）"]])
+    + `<div class="grp"><span>気をつけたい体調（いくつでも）</span><div class="chips">${CONDS.map(([v,t])=>`<button class="chip" data-cond="${v}" aria-pressed="${(pet.conds||[]).includes(v)}">${t}</button>`).join("")}</div></div>`
+    + (pets.length>1?`<button class="linkbtn" id="petDel" style="align-self:flex-start;color:var(--danger)">この子の登録を消す</button>`:"");
+  const changed = ()=>{ savePetsLocal(); computeWeather(); renderPetChips(); syncPet(pet); };
+  $("#petChips").querySelectorAll("[data-k]").forEach(c=>c.onclick=()=>{ pet[c.dataset.k]=c.dataset.v; changed(); });
+  $("#petChips").querySelectorAll("[data-cond]").forEach(c=>c.onclick=()=>{ const v=c.dataset.cond; pet.conds = pet.conds.includes(v)?pet.conds.filter(x=>x!==v):[...pet.conds,v]; changed(); });
+  $("#petChips").querySelectorAll("[data-pi]").forEach(c=>c.onclick=()=>{ petIdx=+c.dataset.pi; pet=pets[petIdx]; savePetsLocal(); computeWeather(); renderPetChips(); });
+  const nm=$("#petName"); nm.onchange=()=>{ pet.name=nm.value.trim().slice(0,20); savePetsLocal(); renderPetChips(); syncPet(pet); };
+  const add=$("#petAdd"); if(add) add.onclick=()=>{ pets.push(newPet()); petIdx=pets.length-1; pet=pets[petIdx]; savePetsLocal(); computeWeather(); renderPetChips(); syncPet(pet); $("#petName").focus(); };
+  const del=$("#petDel"); if(del) del.onclick=()=>{
+    const sh=openSheet(`<h2>${esc(pet.name||"この子")}の登録を消しますか？</h2><p class="note">判定の設定が消えます。散歩の記録は残ります。</p><div class="menu"><button class="danger" id="pdYes">消す</button><button data-close>やめる</button></div>`);
+    sh.querySelector("#pdYes").onclick=async()=>{ const gone=pets.splice(petIdx,1)[0]; petIdx=0; pet=pets[0]; savePetsLocal(); closeSheet(); computeWeather(); renderPetChips(); if(me&&gone.id) await sb.from("pets").delete().eq("id",gone.id); };
+  };
+}
+/* うちの子をサーバーに保存（ログイン中だけ） */
+const syncTimers = {};
+function syncPet(p){
+  if(!me) return;
+  clearTimeout(syncTimers[p.lid]);
+  syncTimers[p.lid] = setTimeout(async()=>{
+    const row = {name:p.name, species:p.species, size:p.size, age:p.age, brachy:p.brachy==="yes", coat:p.coat, hair:p.hair, conds:p.conds||[]};
+    if(p.id){ await sb.from("pets").update(row).eq("id",p.id); }
+    else { const {data} = await sb.from("pets").insert(row).select("id").single(); if(data){ p.id=data.id; savePetsLocal(); } }
+    if(p===pets[0]) savePetToProfile();
+  }, 600);
+}
+async function loadPets(){
+  const {data,error} = await sb.from("pets").select("*").order("created_at");
+  if(error) return;
+  if(data && data.length){
+    pets = data.map(r=>newPet({id:r.id,name:r.name||"",species:r.species,size:r.size,age:r.age,brachy:r.brachy?"yes":"no",coat:r.coat||"mid",hair:r.hair||"short",conds:r.conds||[]}));
+    petIdx = Math.min(petIdx, pets.length-1); pet = pets[petIdx]; savePetsLocal();
+  } else {
+    if(!pets[0].name && me.profile.dog_name) pets[0].name = me.profile.dog_name;
+    pets.forEach(syncPet);
+  }
 }
 async function savePetToProfile(){
   if(!me) return;
-  const upd = {pet_type:pet.species, dog_size:pet.size, dog_age:pet.age, brachy:pet.brachy==="yes"};
+  const p0 = pets[0];
+  const upd = {pet_type:p0.species, dog_size:p0.size, dog_age:p0.age, brachy:p0.brachy==="yes"};
   await sb.from("profiles").update(upd).eq("id",me.id); Object.assign(me.profile, upd);
 }
 
@@ -917,8 +987,8 @@ async function loadMe(session){
   if(!pr){ await sb.from("profiles").insert({id:session.user.id}); ({data:pr} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle()); }
   pr = pr || {id:session.user.id,nickname:"飼い主さん",dog_name:"",dog_breed:""};
   me = {id:session.user.id, email:session.user.email, profile:pr};
-  if(pr.pet_type) pet = {species:pr.pet_type, size:pr.dog_size||"small", age:pr.dog_age||"adult", brachy:pr.brachy?"yes":"no"};
-  ls.set("sanpo-profile",pet); computeWeather(); renderPetChips(); renderMe(); refreshUnread();
+  await loadPets();
+  computeWeather(); renderPetChips(); renderMe(); refreshUnread();
 }
 async function renderMe(){
   const el=$("#meBody");
