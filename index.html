@@ -196,6 +196,8 @@ nav button[aria-current="page"]{color:var(--accent)}
 .note-item small{color:var(--muted)}
 .note-item .thumb{width:44px;height:44px;border-radius:10px;background:var(--line) center/cover no-repeat;flex:none}
 
+.official{display:inline-block;font-size:.66rem;font-weight:700;background:var(--accent);color:#fff;border-radius:6px;padding:0 6px;margin-left:6px;vertical-align:2px;font-family:var(--body)}
+.stat{text-decoration:none;color:var(--muted);font-size:.85rem;padding:0}
 /* 判定のシーン */
 .scene{position:relative;height:300px;border-radius:34px 26px 38px 28px / 28px 36px 26px 34px;overflow:hidden;background:var(--scene-sky)}
 .scene svg.bgart{position:absolute;inset:0;width:100%;height:100%}
@@ -247,7 +249,7 @@ nav button[aria-current="page"]{color:var(--accent)}
 </main>
 
 <main class="view" id="tab-feed" hidden>
-  <div class="top"><h1>みんなのうちの子</h1><button class="bell" id="bellBtn" aria-label="お知らせ"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="badge" id="bellBadge" hidden></span></button></div>
+  <div class="top"><h1>みんなのうちの子</h1><span style="display:flex;gap:2px"><button class="bell" id="searchBtn" aria-label="さがす"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button><button class="bell" id="bellBtn" aria-label="お知らせ"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="badge" id="bellBadge" hidden></span></button></span></div>
   <div class="seg" id="feedSeg">
     <button data-f="new" aria-pressed="true">新着</button>
     <button data-f="near" aria-pressed="false">近く</button>
@@ -826,7 +828,7 @@ async function openArea(list){
 }
 
 /* ================= 投稿 ================= */
-const POST_COLS = "id,user_id,image_path,caption,area_name,lat_grid,lon_grid,created_at,profiles!posts_user_id_fkey(nickname,dog_name,dog_breed,avatar_path,pet_type,is_private),likes!likes_post_id_fkey(count),comments!comments_post_id_fkey(count)";
+const POST_COLS = "id,user_id,image_path,caption,area_name,lat_grid,lon_grid,created_at,profiles!posts_user_id_fkey(nickname,dog_name,dog_breed,avatar_path,pet_type,is_private,is_official,handle),likes!likes_post_id_fkey(count),comments!comments_post_id_fkey(count)";
 let likedSet = new Set(), postCache = {};
 async function fetchPosts(filter, limit=30){
   if(!READY) return [];
@@ -846,7 +848,7 @@ const heart = f => `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="${f?"cu
 const bubble = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>`;
 function postCard(p){
   const pr=p.profiles||{}, liked=likedSet.has(p.id), fresh = Date.now()-new Date(p.created_at) < 24*HOUR;
-  const who = esc(pr.dog_name||pr.nickname||"飼い主さん") + (pr.is_private?LOCK:"");
+  const who = esc(pr.dog_name||pr.nickname||"飼い主さん") + (pr.is_official?OFFICIAL:"") + (pr.is_private?LOCK:"");
   return `<article class="post" data-id="${p.id}">
     <div class="phead">${avatar(pr.avatar_path, pr.dog_name||pr.nickname)}
       <button class="who" data-act="user" data-uid="${p.user_id}"><b>${who}${fresh?'<span class="new">NEW</span>':""}</b><span>${pr.dog_breed?esc(pr.dog_breed)+" ・ ":""}${esc(pr.nickname||"")} ・ ${p.area_name?esc(p.area_name)+"あたり ・ ":""}${ago(p.created_at)}</span></button>
@@ -962,14 +964,15 @@ function confirmBlock(uid, name){
 }
 
 /* ================= ユーザー ================= */
+const OFFICIAL = `<span class="official" title="公式アカウント">公式</span>`;
 const LOCK = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-label="鍵アカウント" role="img" style="vertical-align:-2px;margin-left:4px"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
 async function openUser(uid){
   if(!READY) return;
   const sh = openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div><p class="note">読み込み中…</p>`);
   const [{data:pr},{count:fers},{count:fing},{data:ps},isF] = await Promise.all([
     sb.from("profiles").select("*").eq("id",uid).single(),
-    sb.from("follows").select("*",{count:"exact",head:true}).eq("followee_id",uid).eq("status","accepted"),
-    sb.from("follows").select("*",{count:"exact",head:true}).eq("follower_id",uid).eq("status","accepted"),
+    sb.rpc("follow_counts",{uid}).then(r=>({count:r.data?.[0]?.followers??0})),
+    sb.rpc("follow_counts",{uid}).then(r=>({count:r.data?.[0]?.following??0})),
     sb.from("posts").select("id,image_path").eq("user_id",uid).order("created_at",{ascending:false}).limit(60),
     me&&me.id!==uid ? sb.from("follows").select("status").eq("follower_id",me.id).eq("followee_id",uid).maybeSingle() : Promise.resolve({data:null})
   ]);
@@ -979,8 +982,8 @@ async function openUser(uid){
   const locked = pr.is_private && !self && state!=="accepted";
   const label = () => state==="accepted" ? "フォロー中" : state==="pending" ? "リクエスト済み" : (pr.is_private ? "フォローをリクエスト" : "フォローする");
   sh.innerHTML = `<div class="sheethead"><span></span><button class="x" data-close>×</button></div>
-    <div class="prof">${avatar(pr.avatar_path,pr.dog_name||pr.nickname)}<div><h2>${esc(pr.dog_name||pr.nickname)}${pr.is_private?LOCK:""}</h2><p class="note">${petWord(pr.pet_type)}${pr.dog_breed?" ・ "+esc(pr.dog_breed):""} ・ 飼い主：${esc(pr.nickname)}</p>
-      <div class="stats">${locked?"":`<span><b>${(ps||[]).length}</b>投稿</span>`}<span><b id="ferN">${fers||0}</b>フォロワー</span><span><b>${fing||0}</b>フォロー</span></div></div></div>
+    <div class="prof">${avatar(pr.avatar_path,pr.dog_name||pr.nickname)}<div><h2>${esc(pr.dog_name||pr.nickname)}${pr.is_official?OFFICIAL:""}${pr.is_private?LOCK:""}</h2>${pr.handle?`<p class="note" style="margin:0">@${esc(pr.handle)}</p>`:""}<p class="note">${petWord(pr.pet_type)}${pr.dog_breed?" ・ "+esc(pr.dog_breed):""} ・ 飼い主：${esc(pr.nickname)}</p>
+      <div class="stats">${locked?"":`<span><b>${(ps||[]).length}</b>投稿</span>`}<button class="linkbtn stat" data-fl="followers"><b id="ferN">${fers||0}</b>フォロワー</button><button class="linkbtn stat" data-fl="following"><b>${fing||0}</b>フォロー</button></div></div></div>
     ${self?"":`<div class="row2"><button class="btn ${state!=="none"?"ghost":""}" id="folBtn">${label()}</button><button class="btn ghost" id="blkBtn" style="flex:0 0 auto">ブロック</button></div>`}
     ${locked?`<div class="panel" style="align-items:center;text-align:center">${LOCK.replace('width="15" height="15"','width="34" height="34"')}<p style="margin:0;font-weight:700">鍵アカウントです</p><p class="note">フォローが承認されると、投稿が見られるようになります。</p></div>`
       :`<div class="grid3">${(ps||[]).map(p=>`<button data-pid="${p.id}" style="background-image:url('${photo(p.image_path)}')" aria-label="投稿を見る"></button>`).join("")}</div>`}`;
@@ -1004,6 +1007,7 @@ async function openUser(uid){
     fb.textContent=label(); fb.classList.toggle("ghost",state!=="none");
   };
   const bb = sh.querySelector("#blkBtn"); if(bb) bb.onclick = ()=>confirmBlock(uid, pr.nickname);
+  sh.querySelectorAll("[data-fl]").forEach(b=>b.onclick=()=>openFollowList(pr, b.dataset.fl));
   sh.querySelectorAll("[data-pid]").forEach(b=>b.onclick=async()=>{
     const posts = await fetchPosts(q=>q.eq("id",+b.dataset.pid));
     if(posts[0]) openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div>${postCard(posts[0])}`);
@@ -1104,6 +1108,7 @@ async function loadMe(session){
   if(!pr){ await sb.from("profiles").insert({id:session.user.id}); ({data:pr} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle()); }
   pr = pr || {id:session.user.id,nickname:"飼い主さん",dog_name:"",dog_breed:""};
   me = {id:session.user.id, email:session.user.email, profile:pr};
+  try{ const {data:ad} = await sb.rpc("is_admin"); me.admin = ad===true; }catch(e){ me.admin=false; }
   await loadPets();
   computeWeather(); renderPetChips(); renderMe(); refreshUnread();
 }
@@ -1149,18 +1154,24 @@ async function renderMe(){
       <label class="fld">うちの子の名前<input type="text" id="pDog" maxlength="30" value="${esc(pr.dog_name)}"></label>
       <label class="fld">種類（犬種・猫種）<input type="text" id="pBreed" maxlength="40" value="${esc(pr.dog_breed)}" placeholder="例：柴犬、スコティッシュフォールド、ミックス"></label>
       <label class="fld">飼い主のニックネーム<input type="text" id="pNick" maxlength="30" value="${esc(pr.nickname)}"></label>
+      <label class="fld">ID（半角の英小文字・数字・_ で3〜20文字。検索に使われます）<input type="text" id="pHandle" maxlength="20" autocapitalize="none" autocorrect="off" spellcheck="false" value="${esc(pr.handle||"")}" placeholder="例：pochi_mama"></label>
+      <label class="check"><input type="checkbox" id="pSearch" ${pr.searchable!==false?"checked":""}><span>IDや名前で検索されたときに表示する</span></label>
+      <label class="check"><input type="checkbox" id="pHideF" ${pr.hide_follows?"checked":""}><span>フォロー・フォロワーの一覧を隠す<br><small class="note">ほかの人には人数だけが見えます</small></span></label>
       <button class="btn" id="saveP">保存する</button></div>
     <section><h2>記録</h2><div class="panel" id="recPanel"><p class="note">読み込み中…</p></div></section>
     <div class="row2"><button class="btn ghost" id="myPage">自分の投稿を見る</button><button class="btn ghost" id="logout">ログアウト</button></div>
     ${NATIVE?`<section><h2>朝の通知</h2><div class="panel"><p class="note">毎朝、その日のおすすめの散歩時間をお知らせします。</p><div class="chips" id="notifChips">${[["off","オフ"],["6","6時"],["7","7時"],["8","8時"]].map(([v,t])=>`<button class="chip" data-n="${v}" aria-pressed="${String(ls.get("sanpo-notif","off"))===v}">${t}</button>`).join("")}</div></div></section>`:""}
+    ${me.admin?`<section><h2>通報の確認（管理者）</h2><div class="panel" id="adminPanel"><p class="note">読み込み中…</p></div></section>`:""}
     <section><h2>公開範囲</h2><div class="panel" id="privPanel"><p class="note">読み込み中…</p></div></section>
     <section><h2>ブロック中の人</h2><div class="panel" id="blockPanel"><p class="note">読み込み中…</p></div></section>
     <section><h2>アカウント</h2><div class="panel"><p class="note">ログイン中：${esc(me.email||"")}</p><button class="btn ghost" id="delAcc" style="color:var(--danger);border-color:var(--danger)">アカウントを削除する</button></div></section>
     ${CONFIG.contact.includes("_HERE")?"":`<p class="note">お問い合わせ：${esc(CONFIG.contact)}</p>`}`;
   $("#saveP").onclick = async()=>{
-    const upd={dog_name:$("#pDog").value.trim(),dog_breed:$("#pBreed").value.trim(),nickname:$("#pNick").value.trim()||"飼い主さん"};
+    const hd=$("#pHandle").value.trim().toLowerCase().replace(/^@/,"");
+    if(hd && !/^[a-z0-9_]{3,20}$/.test(hd)) return toast("IDは半角の英小文字・数字・_ で3〜20文字にしてください");
+    const upd={dog_name:$("#pDog").value.trim(),dog_breed:$("#pBreed").value.trim(),nickname:$("#pNick").value.trim()||"飼い主さん",handle:hd||null,searchable:$("#pSearch").checked,hide_follows:$("#pHideF").checked};
     const {error}=await sb.from("profiles").update(upd).eq("id",me.id);
-    if(error) return toast("保存できませんでした"); Object.assign(me.profile,upd); renderMe(); toast("保存しました");
+    if(error) return toast(error.code==="23505"?"そのIDはほかの人が使っています":"保存できませんでした"); Object.assign(me.profile,upd); renderMe(); toast("保存しました");
   };
   $("#avIn").onchange = async e=>{
     const f=e.target.files[0]; if(!f) return;
@@ -1184,7 +1195,7 @@ async function renderMe(){
   $("#myPage").onclick = ()=>openUser(me.id);
   $("#logout").onclick = async()=>{ await sb.auth.signOut(); };
   $("#delAcc").onclick = confirmDelete;
-  renderRecords();
+  renderRecords(); if(me.admin) renderAdmin();
   renderBlocks(); renderPrivacy();
 }
 async function renderBlocks(){
@@ -1235,6 +1246,55 @@ function openLegal(kind){
 }
 
 
+
+/* フォロー・フォロワーの一覧 */
+async function openFollowList(pr, kind){
+  const title = kind==="followers" ? "フォロワー" : "フォロー中";
+  const sh = openSheet(`<div class="sheethead"><h2>${esc(pr.dog_name||pr.nickname)}の${title}</h2><button class="x" data-close>×</button></div><div id="flist"><p class="note">読み込み中…</p></div>`);
+  const self = me && me.id===pr.id;
+  if(pr.hide_follows && !self){ sh.querySelector("#flist").innerHTML=`<p class="note">この人は一覧を公開していません。</p>`; return; }
+  const q = kind==="followers"
+    ? sb.from("follows").select("p:profiles!follows_follower_id_fkey(id,nickname,dog_name,avatar_path,handle,is_official)").eq("followee_id",pr.id)
+    : sb.from("follows").select("p:profiles!follows_followee_id_fkey(id,nickname,dog_name,avatar_path,handle,is_official)").eq("follower_id",pr.id);
+  const {data} = await q.eq("status","accepted").limit(200);
+  const list=(data||[]).map(r=>r.p).filter(Boolean);
+  sh.querySelector("#flist").innerHTML = list.length ? `<div class="notes">${list.map(u=>userRow(u)).join("")}</div>` : `<p class="note">まだいません。</p>`;
+  sh.querySelectorAll("[data-uid]").forEach(b=>b.onclick=()=>openUser(b.dataset.uid));
+}
+const userRow = u => `<button class="note-item" data-uid="${u.id}">${avatar(u.avatar_path,u.dog_name||u.nickname)}<p><b>${esc(u.dog_name||u.nickname||"ユーザー")}</b>${u.is_official?OFFICIAL:""}${u.handle?`<br><small>@${esc(u.handle)}</small>`:""}</p></button>`;
+
+/* 検索 */
+function openSearch(){
+  const sh = openSheet(`<div class="sheethead"><h2>さがす</h2><button class="x" data-close>×</button></div><input type="text" id="sq" placeholder="IDや名前で検索（例：pochi_mama）" autocapitalize="none" autocorrect="off"><div id="sres"></div>`);
+  const inp=sh.querySelector("#sq"); let t;
+  inp.oninput=()=>{ clearTimeout(t); t=setTimeout(async()=>{
+    const q=inp.value.trim().replace(/^@/,"").replace(/[,()%*\\]/g,"");
+    const out=sh.querySelector("#sres");
+    if(q.length<2){ out.innerHTML=`<p class="note">2文字以上で検索できます。</p>`; return; }
+    const {data,error}=await sb.from("profiles").select("id,nickname,dog_name,avatar_path,handle,is_official").eq("searchable",true)
+      .or(`handle.ilike.%${q.toLowerCase()}%,dog_name.ilike.%${q}%,nickname.ilike.%${q}%`).limit(20);
+    if(error){ out.innerHTML=`<p class="note">検索できませんでした。</p>`; return; }
+    out.innerHTML = data.length ? `<div class="notes">${data.map(userRow).join("")}</div>` : `<p class="note">見つかりませんでした。</p>`;
+    out.querySelectorAll("[data-uid]").forEach(b=>b.onclick=()=>openUser(b.dataset.uid));
+  },300); };
+  setTimeout(()=>inp.focus(),50);
+}
+
+/* 管理者：通報の確認 */
+async function renderAdmin(){
+  const el=$("#adminPanel"); if(!el) return;
+  const {data,error}=await sb.from("reports").select("post_id,reason,created_at").order("created_at",{ascending:false}).limit(300);
+  if(error){ el.innerHTML=`<p class="note">読み込めませんでした。</p>`; return; }
+  const by={}; (data||[]).forEach(r=>{ (by[r.post_id]=by[r.post_id]||{id:r.post_id,reasons:[],last:r.created_at}).reasons.push(r.reason); });
+  const items=Object.values(by).sort((a,b)=>b.reasons.length-a.reasons.length);
+  if(!items.length){ el.innerHTML=`<p class="note">確認待ちの通報はありません。</p>`; return; }
+  const {data:ps}=await sb.from("posts").select("id,image_path,caption,user_id").in("id",items.map(i=>i.id));
+  const pm={}; (ps||[]).forEach(p=>pm[p.id]=p);
+  el.innerHTML = `<div class="notes">${items.map(i=>{ const p=pm[i.id]; return `<div class="note-item" style="cursor:default;align-items:flex-start">${p?`<span class="thumb" style="background-image:url('${photo(p.image_path)}')"></span>`:""}<p><b>通報 ${i.reasons.length}件</b>${i.reasons.length>=3?"（非表示中）":""}<br><small>${esc([...new Set(i.reasons)].join("・"))}</small>${p&&p.caption?`<br>${esc(p.caption.slice(0,60))}`:""}<br><span class="row2" style="margin-top:6px"><button class="btn danger" data-adel="${i.id}" style="min-height:36px;padding:4px 12px">投稿を削除</button><button class="btn ghost" data-aok="${i.id}" style="min-height:36px;padding:4px 12px">問題なし</button></span></p></div>`; }).join("")}</div>`;
+  el.querySelectorAll("[data-adel]").forEach(b=>b.onclick=async()=>{ const p=pm[+b.dataset.adel]; const {error}=await sb.from("posts").delete().eq("id",+b.dataset.adel); if(error) return toast("削除できませんでした"); if(p) await sb.storage.from("photos").remove([p.image_path]); toast("削除しました"); renderAdmin(); });
+  el.querySelectorAll("[data-aok]").forEach(b=>b.onclick=async()=>{ await sb.from("reports").delete().eq("post_id",+b.dataset.aok); toast("通報を取り消しました"); renderAdmin(); });
+}
+
 /* ================= お知らせ ================= */
 let unread = 0;
 async function refreshUnread(){
@@ -1278,6 +1338,7 @@ async function openNotes(){
   if(data.some(n=>!n.read)){ await sb.from("notifications").update({read:true}).eq("user_id",me.id).eq("read",false); unread=0; paintBadges(); }
 }
 $("#bellBtn").onclick = openNotes;
+$("#searchBtn").onclick = openSearch;
 
 /* ================= 画面切り替え ================= */
 function go(tab){
