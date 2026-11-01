@@ -659,10 +659,10 @@ const heart = f => `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="${f?"cu
 const bubble = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>`;
 function postCard(p){
   const pr=p.profiles||{}, liked=likedSet.has(p.id), fresh = Date.now()-new Date(p.created_at) < 24*HOUR;
-  const who = (pr.dog_name ? `${esc(pr.dog_name)}${pr.dog_breed?`<span>（${esc(pr.dog_breed)}）</span>`:""}` : esc(pr.nickname||"飼い主さん")) + (pr.is_private?LOCK:"");
+  const who = esc(pr.dog_name||pr.nickname||"飼い主さん") + (pr.is_private?LOCK:"");
   return `<article class="post" data-id="${p.id}">
     <div class="phead">${avatar(pr.avatar_path, pr.dog_name||pr.nickname)}
-      <button class="who" data-act="user" data-uid="${p.user_id}"><b>${who}${fresh?'<span class="new">NEW</span>':""}</b><span>${esc(pr.nickname||"")} ・ ${p.area_name?esc(p.area_name)+"あたり ・ ":""}${ago(p.created_at)}</span></button>
+      <button class="who" data-act="user" data-uid="${p.user_id}"><b>${who}${fresh?'<span class="new">NEW</span>':""}</b><span>${pr.dog_breed?esc(pr.dog_breed)+" ・ ":""}${esc(pr.nickname||"")} ・ ${p.area_name?esc(p.area_name)+"あたり ・ ":""}${ago(p.created_at)}</span></button>
       <button class="more" data-act="menu" aria-label="メニュー">⋯</button></div>
     <img class="pimg" src="${photo(p.image_path)}" alt="${esc(pr.dog_name||petWord(pr.pet_type))}の写真" loading="lazy">
     <div class="pbody"><div class="acts">
