@@ -198,6 +198,12 @@ nav button[aria-current="page"]{color:var(--accent)}
 
 .official{display:inline-block;font-size:.66rem;font-weight:700;background:var(--accent);color:#fff;border-radius:6px;padding:0 6px;margin-left:6px;vertical-align:2px;font-family:var(--body)}
 .stat{text-decoration:none;color:var(--muted);font-size:.85rem;padding:0}
+.msgs{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;padding:4px 2px}
+.msg{align-self:flex-start;max-width:80%;background:var(--card);border-radius:18px 18px 18px 6px;padding:8px 12px;box-shadow:0 1px 0 var(--line)}
+.msg.me{align-self:flex-end;background:#FFF1C2;border-radius:18px 18px 6px 18px}
+.msg p{margin:0;white-space:pre-wrap;word-break:break-word}
+.msg small{color:var(--muted);font-size:.72rem}
+.seg button{font-size:.85rem}
 /* 判定のシーン */
 .scene{position:relative;height:300px;border-radius:34px 26px 38px 28px / 28px 36px 26px 34px;overflow:hidden;background:var(--scene-sky)}
 .scene svg.bgart{position:absolute;inset:0;width:100%;height:100%}
@@ -249,11 +255,12 @@ nav button[aria-current="page"]{color:var(--accent)}
 </main>
 
 <main class="view" id="tab-feed" hidden>
-  <div class="top"><h1>みんなのうちの子</h1><span style="display:flex;gap:2px"><button class="bell" id="searchBtn" aria-label="さがす"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button><button class="bell" id="bellBtn" aria-label="お知らせ"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="badge" id="bellBadge" hidden></span></button></span></div>
+  <div class="top"><h1>みんなのうちの子</h1><span style="display:flex;gap:2px"><button class="bell" id="searchBtn" aria-label="さがす"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button><button class="bell" id="dmBtn" aria-label="メッセージ"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M4 7l8 6 8-6"/></svg><span class="badge" id="dmBadge" hidden></span></button><button class="bell" id="bellBtn" aria-label="お知らせ"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="badge" id="bellBadge" hidden></span></button></span></div>
   <div class="seg" id="feedSeg">
     <button data-f="new" aria-pressed="true">新着</button>
     <button data-f="near" aria-pressed="false">近く</button>
     <button data-f="follow" aria-pressed="false">フォロー中</button>
+    <button data-f="buddy" aria-pressed="false">散歩仲間</button>
   </div>
   <div class="feed" id="feed"></div>
 </main>
@@ -883,6 +890,7 @@ async function loadFeed(){
   const el=$("#feed");
   if(!READY){ el.innerHTML=`<div class="empty">投稿を読み込めませんでした。電波の良い場所で開き直してください。</div>`; return; }
   el.innerHTML=`<div class="empty">読み込み中…</div>`;
+  if(feedMode==="buddy") return loadBuddies();
   let posts=[];
   if(feedMode==="new") posts = await fetchPosts();
   else if(feedMode==="near"){
@@ -984,7 +992,7 @@ async function openUser(uid){
   sh.innerHTML = `<div class="sheethead"><span></span><button class="x" data-close>×</button></div>
     <div class="prof">${avatar(pr.avatar_path,pr.dog_name||pr.nickname)}<div><h2>${esc(pr.dog_name||pr.nickname)}${pr.is_official?OFFICIAL:""}${pr.is_private?LOCK:""}</h2>${pr.handle?`<p class="note" style="margin:0">@${esc(pr.handle)}</p>`:""}<p class="note">${petWord(pr.pet_type)}${pr.dog_breed?" ・ "+esc(pr.dog_breed):""} ・ 飼い主：${esc(pr.nickname)}</p>
       <div class="stats">${locked?"":`<span><b>${(ps||[]).length}</b>投稿</span>`}<button class="linkbtn stat" data-fl="followers"><b id="ferN">${fers||0}</b>フォロワー</button><button class="linkbtn stat" data-fl="following"><b>${fing||0}</b>フォロー</button></div></div></div>
-    ${self?"":`<div class="row2"><button class="btn ${state!=="none"?"ghost":""}" id="folBtn">${label()}</button><button class="btn ghost" id="blkBtn" style="flex:0 0 auto">ブロック</button></div>`}
+    ${self?"":`<div class="row2"><button class="btn ${state!=="none"?"ghost":""}" id="folBtn">${label()}</button><button class="btn ghost" id="dmUser" style="flex:0 0 auto">メッセージ</button></div><div style="display:flex;gap:16px"><button class="linkbtn" id="blkBtn">ブロック</button><button class="linkbtn" id="repUser">通報</button></div>`}
     ${locked?`<div class="panel" style="align-items:center;text-align:center">${LOCK.replace('width="15" height="15"','width="34" height="34"')}<p style="margin:0;font-weight:700">鍵アカウントです</p><p class="note">フォローが承認されると、投稿が見られるようになります。</p></div>`
       :`<div class="grid3">${(ps||[]).map(p=>`<button data-pid="${p.id}" style="background-image:url('${photo(p.image_path)}')" aria-label="投稿を見る"></button>`).join("")}</div>`}`;
   const fb = sh.querySelector("#folBtn");
@@ -1008,6 +1016,8 @@ async function openUser(uid){
   };
   const bb = sh.querySelector("#blkBtn"); if(bb) bb.onclick = ()=>confirmBlock(uid, pr.nickname);
   sh.querySelectorAll("[data-fl]").forEach(b=>b.onclick=()=>openFollowList(pr, b.dataset.fl));
+  const du=sh.querySelector("#dmUser"); if(du) du.onclick=()=>openChatWith(uid);
+  const ru=sh.querySelector("#repUser"); if(ru) ru.onclick=()=>reportUser(uid, pr.nickname);
   sh.querySelectorAll("[data-pid]").forEach(b=>b.onclick=async()=>{
     const posts = await fetchPosts(q=>q.eq("id",+b.dataset.pid));
     if(posts[0]) openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div>${postCard(posts[0])}`);
@@ -1287,25 +1297,163 @@ async function renderAdmin(){
   if(error){ el.innerHTML=`<p class="note">読み込めませんでした。</p>`; return; }
   const by={}; (data||[]).forEach(r=>{ (by[r.post_id]=by[r.post_id]||{id:r.post_id,reasons:[],last:r.created_at}).reasons.push(r.reason); });
   const items=Object.values(by).sort((a,b)=>b.reasons.length-a.reasons.length);
-  if(!items.length){ el.innerHTML=`<p class="note">確認待ちの通報はありません。</p>`; return; }
+  const {data:urs}=await sb.from("user_reports").select("id,target_id,reason,created_at,t:profiles!user_reports_target_id_fkey(nickname,dog_name)").order("created_at",{ascending:false}).limit(100);
+  const uhtml = (urs&&urs.length)?`<h3>ユーザーへの通報</h3><div class="notes">${urs.map(r=>`<div class="note-item" style="cursor:default"><p><b>${esc(r.t?.dog_name||r.t?.nickname||"ユーザー")}</b>：${esc(r.reason)}<br><small>${ago(r.created_at)}</small></p><button class="btn ghost" data-uopen="${r.target_id}" style="flex:0 0 auto;min-height:36px;padding:4px 10px">見る</button><button class="btn ghost" data-uok="${r.id}" style="flex:0 0 auto;min-height:36px;padding:4px 10px">済</button></div>`).join("")}</div>`:"";
+  if(!items.length){ el.innerHTML=(uhtml||`<p class="note">確認待ちの通報はありません。</p>`); bindUserReports(el); return; }
   const {data:ps}=await sb.from("posts").select("id,image_path,caption,user_id").in("id",items.map(i=>i.id));
   const pm={}; (ps||[]).forEach(p=>pm[p.id]=p);
   el.innerHTML = `<div class="notes">${items.map(i=>{ const p=pm[i.id]; return `<div class="note-item" style="cursor:default;align-items:flex-start">${p?`<span class="thumb" style="background-image:url('${photo(p.image_path)}')"></span>`:""}<p><b>通報 ${i.reasons.length}件</b>${i.reasons.length>=3?"（非表示中）":""}<br><small>${esc([...new Set(i.reasons)].join("・"))}</small>${p&&p.caption?`<br>${esc(p.caption.slice(0,60))}`:""}<br><span class="row2" style="margin-top:6px"><button class="btn danger" data-adel="${i.id}" style="min-height:36px;padding:4px 12px">投稿を削除</button><button class="btn ghost" data-aok="${i.id}" style="min-height:36px;padding:4px 12px">問題なし</button></span></p></div>`; }).join("")}</div>`;
   el.querySelectorAll("[data-adel]").forEach(b=>b.onclick=async()=>{ const p=pm[+b.dataset.adel]; const {error}=await sb.from("posts").delete().eq("id",+b.dataset.adel); if(error) return toast("削除できませんでした"); if(p) await sb.storage.from("photos").remove([p.image_path]); toast("削除しました"); renderAdmin(); });
   el.querySelectorAll("[data-aok]").forEach(b=>b.onclick=async()=>{ await sb.from("reports").delete().eq("post_id",+b.dataset.aok); toast("通報を取り消しました"); renderAdmin(); });
+  if(uhtml){ el.insertAdjacentHTML("beforeend", uhtml); bindUserReports(el); }
+}
+function bindUserReports(el){
+  el.querySelectorAll("[data-uopen]").forEach(b=>b.onclick=()=>openUser(b.dataset.uopen));
+  el.querySelectorAll("[data-uok]").forEach(b=>b.onclick=async()=>{ await sb.from("user_reports").delete().eq("id",+b.dataset.uok); toast("確認済みにしました"); renderAdmin(); });
+}
+
+
+/* ================= メッセージ ================= */
+let chatTimer = null;
+const pair = (a,b) => a<b ? [a,b] : [b,a];
+async function openChatWith(uid){
+  if(!me) return needLogin();
+  if(uid===me.id) return;
+  const [a,b] = pair(me.id, uid);
+  let {data:c} = await sb.from("chats").select("*").eq("user_a",a).eq("user_b",b).maybeSingle();
+  if(!c){
+    const r = await sb.from("chats").insert({user_a:a,user_b:b}).select("*").single();
+    if(r.error) return toast("メッセージを始められませんでした");
+    c = r.data;
+  }
+  openChat(c.id);
+}
+async function openChats(){
+  if(!me) return needLogin();
+  const sh = openSheet(`<div class="sheethead"><h2>メッセージ</h2><button class="x" data-close>×</button></div><div id="chatList"><p class="note">読み込み中…</p></div>`);
+  const {data:cs} = await sb.from("chats").select("*").order("last_at",{ascending:false}).limit(50);
+  const list = cs||[], el = sh.querySelector("#chatList");
+  if(!list.length){ el.innerHTML=`<p class="note">まだメッセージはありません。プロフィールの「メッセージ」から送れます。</p>`; return; }
+  const others = list.map(c=>c.user_a===me.id?c.user_b:c.user_a);
+  const [{data:ps},{data:unr}] = await Promise.all([
+    sb.from("profiles").select("id,nickname,dog_name,avatar_path,is_official").in("id",others),
+    sb.from("messages").select("chat_id").is("read_at",null).neq("sender_id",me.id).in("chat_id",list.map(c=>c.id))
+  ]);
+  const pm={}; (ps||[]).forEach(p=>pm[p.id]=p);
+  const un={}; (unr||[]).forEach(m=>un[m.chat_id]=(un[m.chat_id]||0)+1);
+  el.innerHTML = `<div class="notes">${list.map(c=>{ const o=pm[c.user_a===me.id?c.user_b:c.user_a]||{}; const req=c.status==="pending"; return `<button class="note-item ${un[c.id]?"unread":""}" data-chat="${c.id}">${avatar(o.avatar_path,o.dog_name||o.nickname)}<p><b>${esc(o.dog_name||o.nickname||"ユーザー")}</b>${o.is_official?OFFICIAL:""}${req?` <span class="new">${c.requested_by===me.id?"承認待ち":"リクエスト"}</span>`:""}<br><small>${ago(c.last_at)}${un[c.id]?` ・ 未読 ${un[c.id]}`:""}</small></p></button>`; }).join("")}</div>`;
+  el.querySelectorAll("[data-chat]").forEach(b=>b.onclick=()=>openChat(+b.dataset.chat));
+}
+async function openChat(cid){
+  clearInterval(chatTimer);
+  const sh = openSheet(`<div class="sheethead"><button class="linkbtn" id="chatBack">← 一覧</button><b id="chatName"></b><button class="x" data-close>×</button></div><div id="chatTop"></div><div class="msgs" id="msgs"><p class="note">読み込み中…</p></div><div id="chatForm"></div>`);
+  sh.querySelector("#chatBack").onclick=()=>{ clearInterval(chatTimer); openChats(); };
+  const {data:c} = await sb.from("chats").select("*").eq("id",cid).single();
+  if(!c){ sh.querySelector("#msgs").innerHTML=`<p class="note">見つかりませんでした。</p>`; return; }
+  const oid = c.user_a===me.id?c.user_b:c.user_a;
+  const {data:o} = await sb.from("profiles").select("id,nickname,dog_name,avatar_path").eq("id",oid).single();
+  const oname = o?.dog_name||o?.nickname||"ユーザー";
+  sh.querySelector("#chatName").textContent = oname;
+  let last = "";
+  const draw = async()=>{
+    if(!document.body.contains(sh)){ clearInterval(chatTimer); return; }
+    const [{data:cc},{data:ms}] = await Promise.all([sb.from("chats").select("status,requested_by").eq("id",cid).single(), sb.from("messages").select("id,sender_id,body,created_at,read_at").eq("chat_id",cid).order("created_at").limit(300)]);
+    const list = ms||[], st = cc?cc.status:"pending", mineReq = cc&&cc.requested_by===me.id;
+    const sig = st+list.length+(list.at(-1)?.read_at||"");
+    if(sig!==last){
+      last = sig;
+      const box = sh.querySelector("#msgs");
+      box.innerHTML = list.length ? list.map(m=>`<div class="msg ${m.sender_id===me.id?"me":""}"><p>${esc(m.body)}</p><small>${ago(m.created_at)}${m.sender_id===me.id&&m.read_at?" ・ 既読":""}</small></div>`).join("") : `<p class="note">最初のメッセージを送ってみましょう。会うときは、公園など人のいる場所にしてくださいね。</p>`;
+      box.scrollTop = box.scrollHeight;
+      const top = sh.querySelector("#chatTop");
+      top.innerHTML = st==="pending" ? (mineReq
+        ? `<p class="note">メッセージリクエストを送りました。相手が承認するまで、次のメッセージは送れません。</p>`
+        : `<div class="panel"><p style="margin:0"><b>${esc(oname)}</b> からのメッセージリクエストです。</p><div class="row2"><button class="btn" id="cAcc">承認する</button><button class="btn ghost" id="cDel">削除</button></div><div style="display:flex;gap:16px"><button class="linkbtn" id="cBlk">ブロック</button><button class="linkbtn" id="cRep">通報</button></div></div>`) : "";
+      const acc=sh.querySelector("#cAcc"); if(acc) acc.onclick=async()=>{ await sb.from("chats").update({status:"accepted"}).eq("id",cid); last=""; draw(); };
+      const del=sh.querySelector("#cDel"); if(del) del.onclick=async()=>{ await sb.from("chats").delete().eq("id",cid); toast("削除しました"); openChats(); };
+      const blk=sh.querySelector("#cBlk"); if(blk) blk.onclick=()=>confirmBlock(oid, oname);
+      const rp=sh.querySelector("#cRep"); if(rp) rp.onclick=()=>reportUser(oid, oname);
+      const canSend = st==="accepted" || (mineReq && !list.length);
+      sh.querySelector("#chatForm").innerHTML = canSend ? `<div class="row2"><input type="text" id="msgIn" maxlength="500" placeholder="メッセージ"><button class="btn" id="msgBtn" style="flex:0 0 auto">送る</button></div>` : "";
+      const mb=sh.querySelector("#msgBtn"), mi=sh.querySelector("#msgIn");
+      if(mb){ const send=async()=>{ const v=mi.value.trim(); if(!v) return; mb.disabled=true; const {error}=await sb.from("messages").insert({chat_id:cid,body:v}); mb.disabled=false; if(error) return toast("送れませんでした"); mi.value=""; last=""; draw(); }; mb.onclick=send; mi.onkeydown=e=>{ if(e.key==="Enter"&&!e.isComposing) send(); }; }
+    }
+    const unreadIds = list.filter(m=>m.sender_id!==me.id && !m.read_at).map(m=>m.id);
+    if(unreadIds.length){ await sb.from("messages").update({read_at:new Date().toISOString()}).in("id",unreadIds); await sb.from("notifications").update({read:true}).eq("user_id",me.id).eq("actor_id",oid).eq("kind","message"); refreshUnread(); }
+  };
+  await draw();
+  chatTimer = setInterval(draw, 8000);
+}
+$("#dmBtn").onclick = openChats;
+
+function reportUser(uid, name){
+  if(!me) return needLogin();
+  const sh = openSheet(`<h2>${esc(name||"この人")}を通報する理由</h2><div class="menu">${["しつこいメッセージ","不快・攻撃的な内容","なりすまし","宣伝・スパム","会おうとしつこく誘われる"].map(r=>`<button data-r="${r}">${r}</button>`).join("")}<button data-close>やめる</button></div>`);
+  sh.querySelectorAll("[data-r]").forEach(b=>b.onclick=async()=>{
+    const {error}=await sb.from("user_reports").insert({target_id:uid, reason:b.dataset.r});
+    closeSheet(); toast(error&&error.code==="23505"?"すでに通報済みです":error?"通報できませんでした":"通報しました。必要ならブロックもしてください");
+  });
+}
+
+/* ================= 散歩仲間 ================= */
+const TIMES = [["morning","朝"],["day","昼"],["evening","夕方"],["night","夜"]];
+async function loadBuddies(){
+  const el=$("#feed");
+  if(!me){ el.innerHTML=`<div class="empty">ログインすると、近くの散歩仲間を探せます。</div>`; return; }
+  if(!pos){ try{ pos=await getPosition(); }catch(e){} }
+  const {data:mine} = await sb.from("buddies").select("*").eq("user_id",me.id).maybeSingle();
+  let list=[];
+  if(pos){
+    const {data} = await sb.from("buddies").select("*,p:profiles!buddies_user_id_fkey(id,nickname,dog_name,dog_breed,avatar_path,pet_type,is_official)")
+      .gte("lat_grid",pos.lat-0.15).lte("lat_grid",pos.lat+0.15).gte("lon_grid",pos.lon-0.18).lte("lon_grid",pos.lon+0.18)
+      .neq("user_id",me.id).order("updated_at",{ascending:false}).limit(50);
+    list=data||[];
+  }
+  const tl = t => (TIMES.find(x=>x[0]===t)||[,""])[1];
+  el.innerHTML = `<div class="panel"><h2>散歩仲間をさがす</h2><p class="note">いつもの散歩の時間帯とひとことを登録すると、近くの飼い主さんに表示されます。場所は約5km単位の地域名だけが出ます。</p>
+      ${mine?`<p style="margin:0"><b>登録中</b>：${esc(mine.area_name||"このあたり")}・${mine.times.map(tl).join("、")||"時間帯なし"}<br><small class="note">${esc(mine.note)}</small></p>`:""}
+      <div class="row2"><button class="btn" id="bdEdit">${mine?"登録を変える":"仲間さがしに登録する"}</button>${mine?`<button class="btn ghost" id="bdOff" style="flex:0 0 auto">やめる</button>`:""}</div></div>
+    ${pos?(list.length?list.map(b=>`<div class="post"><div class="phead">${avatar(b.p?.avatar_path,b.p?.dog_name||b.p?.nickname)}<button class="who" data-act="user" data-uid="${b.user_id}"><b>${esc(b.p?.dog_name||b.p?.nickname||"飼い主さん")}${b.p?.is_official?OFFICIAL:""}</b><span>${b.p?.dog_breed?esc(b.p.dog_breed)+" ・ ":""}${esc(b.area_name||"このあたり")} ・ ${b.times.map(tl).join("・")||"時間帯いろいろ"}</span></button></div><div class="pbody">${b.note?`<p class="cap">${esc(b.note)}</p>`:""}<button class="btn ghost" data-dm="${b.user_id}">メッセージを送る</button></div></div>`).join("")
+      :`<div class="empty">近くに登録している人はまだいません。先に登録して待ってみましょう。</div>`)
+     :`<div class="empty">位置情報をオンにすると、近くの散歩仲間が表示されます。</div>`}`;
+  el.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>openChatWith(b.dataset.dm));
+  $("#bdEdit").onclick=()=>editBuddy(mine);
+  const off=$("#bdOff"); if(off) off.onclick=async()=>{ await sb.from("buddies").delete().eq("user_id",me.id); toast("登録をやめました"); loadBuddies(); };
+}
+function editBuddy(mine){
+  let times = mine ? [...mine.times] : [];
+  const sh = openSheet(`<div class="sheethead"><h2>散歩仲間の登録</h2><button class="x" data-close>×</button></div>
+    <div class="grp"><span>よく散歩する時間帯</span><div class="chips" id="bdTimes">${TIMES.map(([v,t])=>`<button class="chip" data-t="${v}" aria-pressed="${times.includes(v)}">${t}</button>`).join("")}</div></div>
+    <textarea id="bdNote" maxlength="120" placeholder="ひとこと（例：小型犬の友だちを探しています。朝7時ごろ、近くの公園を歩いています）">${esc(mine?mine.note:"")}</textarea>
+    <p class="note">場所は約5km単位の地域名だけが表示されます。会うときは、人の多い公園などにしましょう。</p>
+    <button class="btn wide" id="bdSave">登録する</button>`);
+  sh.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{ const v=b.dataset.t; times=times.includes(v)?times.filter(x=>x!==v):[...times,v]; b.setAttribute("aria-pressed",times.includes(v)); });
+  sh.querySelector("#bdSave").onclick=async()=>{
+    try{ if(!pos) pos=await getPosition(); }catch(e){ return toast("位置情報を使えないため登録できません"); }
+    const la=Math.round(pos.lat*20)/20, lo=Math.round(pos.lon*20)/20;
+    const area = await areaName(la,lo,10);
+    const {error}=await sb.from("buddies").upsert({user_id:me.id, area_name:area, lat_grid:la, lon_grid:lo, times, note:sh.querySelector("#bdNote").value.trim(), updated_at:new Date().toISOString()});
+    if(error) return toast("登録できませんでした");
+    closeSheet(); toast("登録しました"); loadBuddies();
+  };
 }
 
 /* ================= お知らせ ================= */
 let unread = 0;
 async function refreshUnread(){
-  if(!me){ unread=0; paintBadges(); return; }
-  const {count} = await sb.from("notifications").select("id",{count:"exact",head:true}).eq("user_id",me.id).eq("read",false);
-  unread = count||0; paintBadges();
+  if(!me){ unread=0; dmUnread=0; paintBadges(); return; }
+  const [{count},{count:dmc}] = await Promise.all([
+    sb.from("notifications").select("id",{count:"exact",head:true}).eq("user_id",me.id).eq("read",false).neq("kind","message"),
+    sb.from("messages").select("id",{count:"exact",head:true}).is("read_at",null).neq("sender_id",me.id)
+  ]);
+  unread = count||0; dmUnread = dmc||0; paintBadges();
 }
+let dmUnread = 0;
 function paintBadges(){
-  const b=$("#bellBadge"), n=$("#navBadge");
+  const b=$("#bellBadge"), n=$("#navBadge"), d=$("#dmBadge");
   if(b){ b.hidden = !unread; b.textContent = unread>99?"99+":unread; }
-  if(n) n.hidden = !unread;
+  if(d){ d.hidden = !dmUnread; d.textContent = dmUnread>99?"99+":dmUnread; }
+  if(n) n.hidden = !(unread||dmUnread);
 }
 setInterval(()=>{ if(me && document.visibilityState==="visible") refreshUnread(); }, 60000);
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && me) refreshUnread(); });
@@ -1324,7 +1472,7 @@ async function openNotes(){
   const sh = openSheet(`<div class="sheethead"><h2>お知らせ</h2><button class="x" data-close>×</button></div><div class="notes" id="notes"><p class="note">読み込み中…</p></div>`);
   const {data,error} = await sb.from("notifications")
     .select("id,kind,read,created_at,post_id,actor_id,actor:profiles!notifications_actor_id_fkey(nickname,dog_name,avatar_path),posts!notifications_post_id_fkey(image_path),comments!notifications_comment_id_fkey(body)")
-    .eq("user_id",me.id).order("created_at",{ascending:false}).limit(60);
+    .eq("user_id",me.id).neq("kind","message").order("created_at",{ascending:false}).limit(60);
   const el = sh.querySelector("#notes");
   if(error){ el.innerHTML=`<p class="note">お知らせを読み込めませんでした。</p>`; return; }
   if(!data.length){ el.innerHTML=`<p class="note">まだお知らせはありません。投稿に肉球やコメントがつくと、ここに届きます。</p>`; return; }
@@ -1335,7 +1483,7 @@ async function openNotes(){
     if(n.post_id){ const ps = await fetchPosts(q=>q.eq("id",n.post_id)); if(ps[0]) openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div>${postCard(ps[0])}`); else toast("この投稿は見られなくなりました"); return; }
     openUser(n.actor_id);
   });
-  if(data.some(n=>!n.read)){ await sb.from("notifications").update({read:true}).eq("user_id",me.id).eq("read",false); unread=0; paintBadges(); }
+  if(data.some(n=>!n.read)){ await sb.from("notifications").update({read:true}).eq("user_id",me.id).eq("read",false).neq("kind","message"); unread=0; paintBadges(); }
 }
 $("#bellBtn").onclick = openNotes;
 $("#searchBtn").onclick = openSearch;
