@@ -307,7 +307,42 @@ function computeWeather(){
   const {all, idx, place} = rawWeather, ev = evaluate(all);
   const sel = weather ? weather.sel : 0;
   weather = {place, sel, hours: all.slice(idx, idx+24).map((h,k)=>Object.assign({},h,ev[idx+k],{isNow:k===0}))};
-  renderHome(); updateMapStatus();
+  renderHome(); updateMapStatus(); scheduleMorning();
+}
+
+/* ================= 朝の通知（アプリ版だけ） ================= */
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const LN = NATIVE ? (window.Capacitor.Plugins||{}).LocalNotifications : null;
+async function notifPermission(){
+  if(!LN) return false;
+  try{ let p = await LN.checkPermissions(); if(p.display!=="granted") p = await LN.requestPermissions(); return p.display==="granted"; }catch(e){ return false; }
+}
+// 予報がある日は「その日のおすすめ時間」、ない日は一般的なお知らせを、7日分予約しておく
+async function scheduleMorning(){
+  if(!LN) return;
+  try{
+    const pending = await LN.getPending();
+    if(pending.notifications.length) await LN.cancel({notifications: pending.notifications.map(n=>({id:n.id}))});
+    const hour = ls.get("sanpo-notif","off"); if(hour==="off") return;
+    const ev = rawWeather ? evaluate(rawWeather.all) : null;
+    const list = [];
+    for(let d=0; d<7; d++){
+      const at = new Date(); at.setDate(at.getDate()+d); at.setHours(+hour,0,0,0);
+      if(at <= new Date()) continue;
+      let body = "今日の路面と気温をチェックして、安全な時間に散歩しましょう。";
+      if(rawWeather){
+        const key = `${at.getFullYear()}-${String(at.getMonth()+1).padStart(2,"0")}-${String(at.getDate()).padStart(2,"0")}`;
+        const idx = rawWeather.all.map((h,i)=>[h,i]).filter(([h])=>h.t.startsWith(key)).map(([,i])=>i);
+        if(idx.length===24){
+          const H = idx.map(i=>Object.assign({}, rawWeather.all[i], ev[i]));
+          const wins = bestWindows(H), maxA = Math.round(Math.max(...H.map(h=>h.asph)));
+          body = wins.length ? `今日のおすすめは ${wins.join("、")}。アスファルトは最高で約${maxA}℃の予想です。` : `今日は安全な時間帯が少なめです（アスファルト最高約${maxA}℃）。短めの散歩か室内遊びがおすすめです。`;
+        }
+      }
+      list.push({id:100+d, title:"今日のさんぽ判定", body, schedule:{at}});
+    }
+    if(list.length) await LN.schedule({notifications:list});
+  }catch(e){}
 }
 function startCard(msg){
   return `<div class="start"><h2>今、散歩して大丈夫？</h2><p>現在地の天気から、路面の温度と暑さ・寒さを判定します。位置情報はこの端末の中で使い、正確な位置はどこにも保存しません。</p>${msg?`<p class="note">${esc(msg)}</p>`:""}<button class="btn" id="geoBtn">現在地で判定する</button></div>`;
@@ -745,14 +780,34 @@ async function renderMe(){
   const el=$("#meBody");
   if(!READY){ el.innerHTML=`<div class="panel"><p class="note">投稿とログインの準備ができていません。電波の良い場所で開き直してください。</p></div>`; return; }
   if(!me){
-    el.innerHTML=`<div class="panel"><h2>ログイン・新規登録</h2><p class="note">メールアドレスにログイン用のリンクを送ります。パスワードは不要です。</p>
-      <input type="email" id="emailIn" placeholder="メールアドレス" autocomplete="email"><button class="btn wide" id="loginBtn">ログイン用のメールを送る</button><p class="note" id="loginMsg">登録すると<button class="linkbtn" data-legal="terms">利用規約</button>と<button class="linkbtn" data-legal="privacy">プライバシーポリシー</button>に同意したものとみなします。</p></div>`;
+    el.innerHTML=`<div class="panel"><h2>ログイン・新規登録</h2><p class="note">メールアドレスにログイン用のコードを送ります。パスワードは不要です。</p>
+      <input type="email" id="emailIn" placeholder="メールアドレス" autocomplete="email"><button class="btn wide" id="loginBtn">ログイン用のメールを送る</button>
+      <div id="codeBox" hidden><div class="row2"><input type="text" id="codeIn" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="メールに届いた数字"><button class="btn" id="codeBtn" style="flex:0 0 auto">ログイン</button></div></div>
+      <div id="pwBox" hidden><div class="row2"><input type="text" id="pwIn" placeholder="パスワード" autocomplete="current-password" style="-webkit-text-security:disc"><button class="btn" id="pwBtn" style="flex:0 0 auto">ログイン</button></div></div>
+      <p class="note" id="loginMsg">登録すると<button class="linkbtn" data-legal="terms">利用規約</button>と<button class="linkbtn" data-legal="privacy">プライバシーポリシー</button>に同意したものとみなします。</p>
+      <button class="linkbtn" id="pwToggle">パスワードでログイン</button></div>`;
+    const emailOk = () => { const e=$("#emailIn").value.trim(); if(!/^\S+@\S+\.\S+$/.test(e)){ $("#loginMsg").textContent="メールアドレスを確認してください。"; return null; } return e; };
     $("#loginBtn").onclick = async()=>{
-      const email=$("#emailIn").value.trim(); if(!/^\S+@\S+\.\S+$/.test(email)) return $("#loginMsg").textContent="メールアドレスを確認してください。";
+      const email=emailOk(); if(!email) return;
       $("#loginBtn").disabled=true;
       const {error}=await sb.auth.signInWithOtp({email, options:{emailRedirectTo: CONFIG.appUrl}});
       $("#loginBtn").disabled=false;
-      $("#loginMsg").textContent = error ? "送れませんでした。少し時間をおいてお試しください。" : `${email} にメールを送りました。メールのリンクを開くとログインできます。届かないときは迷惑メールのフォルダも確認してください。`;
+      if(error){ $("#loginMsg").textContent="送れませんでした。少し時間をおいてお試しください。"; return; }
+      $("#codeBox").hidden=false; $("#codeIn").focus();
+      $("#loginMsg").textContent=`${email} にメールを送りました。メールに書かれた数字を入力してください。届かないときは迷惑メールのフォルダも確認してください。`;
+    };
+    $("#codeBtn").onclick = async()=>{
+      const email=emailOk(), token=$("#codeIn").value.replace(/\D/g,""); if(!email||token.length<6) return;
+      $("#codeBtn").disabled=true;
+      const {error}=await sb.auth.verifyOtp({email, token, type:"email"});
+      $("#codeBtn").disabled=false;
+      if(error) $("#loginMsg").textContent="数字が違うか、期限が切れています。もう一度メールを送ってください。";
+    };
+    $("#pwToggle").onclick = ()=>{ $("#pwBox").hidden=!$("#pwBox").hidden; };
+    $("#pwBtn").onclick = async()=>{
+      const email=emailOk(); if(!email) return;
+      const {error}=await sb.auth.signInWithPassword({email, password:$("#pwIn").value});
+      if(error) $("#loginMsg").textContent="メールアドレスかパスワードが違います。";
     };
     return;
   }
@@ -766,6 +821,7 @@ async function renderMe(){
       <button class="btn" id="saveP">保存する</button></div>
     <section><h2>散歩の記録</h2><div class="panel" id="walkPanel"><p class="note">読み込み中…</p></div></section>
     <div class="row2"><button class="btn ghost" id="myPage">自分の投稿を見る</button><button class="btn ghost" id="logout">ログアウト</button></div>
+    ${NATIVE?`<section><h2>朝の通知</h2><div class="panel"><p class="note">毎朝、その日のおすすめの散歩時間をお知らせします。</p><div class="chips" id="notifChips">${[["off","オフ"],["6","6時"],["7","7時"],["8","8時"]].map(([v,t])=>`<button class="chip" data-n="${v}" aria-pressed="${String(ls.get("sanpo-notif","off"))===v}">${t}</button>`).join("")}</div></div></section>`:""}
     <section><h2>ブロック中の人</h2><div class="panel" id="blockPanel"><p class="note">読み込み中…</p></div></section>
     <section><h2>アカウント</h2><div class="panel"><p class="note">ログイン中：${esc(me.email||"")}</p><button class="btn ghost" id="delAcc" style="color:var(--danger);border-color:var(--danger)">アカウントを削除する</button></div></section>
     ${CONFIG.contact.includes("_HERE")?"":`<p class="note">お問い合わせ：${esc(CONFIG.contact)}</p>`}`;
@@ -783,6 +839,16 @@ async function renderMe(){
     if(old) sb.storage.from("photos").remove([old]);
     renderMe(); toast("変更しました");
   };
+  document.querySelectorAll("#notifChips .chip").forEach(c=>c.onclick=async()=>{
+    const v=c.dataset.n;
+    if(v!=="off"){
+      const ok = await notifPermission();
+      if(!ok){ toast("通知が許可されていません。iPhoneの設定アプリから許可してください"); return; }
+    }
+    ls.set("sanpo-notif", v); scheduleMorning();
+    document.querySelectorAll("#notifChips .chip").forEach(x=>x.setAttribute("aria-pressed", x===c));
+    toast(v==="off" ? "通知をオフにしました" : `毎朝${v}時にお知らせします`);
+  });
   $("#myPage").onclick = ()=>openUser(me.id);
   $("#logout").onclick = async()=>{ await sb.auth.signOut(); };
   $("#delAcc").onclick = confirmDelete;
@@ -855,6 +921,13 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.ta
 /* ================= 起動 ================= */
 renderHome(); renderMe();
 if(ls.get("sanpo-geo-ok",false)) locate(false);
+// ストアに載せるページ用：#privacy #terms #support で直接開ける
+function openFromHash(){
+  const h = location.hash.slice(1);
+  if(h==="privacy"||h==="terms") openLegal(h);
+  else if(h==="support") openSheet(`<div class="sheethead"><h2>サポート</h2><button class="x" data-close>×</button></div><div class="legal"><p>「さんぽ路面計」についてのご質問、不具合のご報告、投稿の削除依頼は、次のメールアドレスまでご連絡ください。</p><p><b>${esc(CONFIG.contact)}</b></p><p>アカウントの削除は、アプリのマイページにある「アカウントを削除する」からいつでも行えます。</p></div><div class="links"><button class="linkbtn" data-legal="terms">利用規約</button><button class="linkbtn" data-legal="privacy">プライバシーポリシー</button></div>`);
+}
+openFromHash(); window.addEventListener("hashchange", openFromHash);
 if(READY){
   sb.auth.getSession().then(({data})=>loadMe(data.session));
   sb.auth.onAuthStateChange((ev,session)=>{ if(ev==="SIGNED_IN"||ev==="SIGNED_OUT") setTimeout(()=>loadMe(session),0); });

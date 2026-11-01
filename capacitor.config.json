@@ -1,0 +1,14 @@
+{
+  "appId": "io.github.sanpolab.sanpo",
+  "appName": "さんぽ路面計",
+  "webDir": "www",
+  "ios": {
+    "appendUserAgent": "SanpoRomenkei/1.0 (+https://sanpolab.github.io/sanpo/)",
+    "contentInset": "never"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#1E6C88"
+    }
+  }
+}
