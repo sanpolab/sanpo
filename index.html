@@ -107,7 +107,10 @@ textarea{resize:vertical;min-height:80px}
 .maphint>*{pointer-events:auto}
 .maphint small{background:rgba(255,253,247,.95);border-radius:14px;padding:5px 12px;font-size:.8rem;box-shadow:0 2px 8px rgba(0,0,0,.15);text-align:center}
 .spin{width:34px;height:34px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:grid;place-items:center;color:#fff;position:relative}
-.spin.park{background:#3F7A4A}.spin.cafe{background:#B07A3B}
+.spin.park{background:#3F7A4A}.spin.cafe{background:#B07A3B}.spin.vet{background:#2F6FB0}
+.spin i.h24{background:#C8553D;color:#fff}
+.maplayers .chip[data-l="vet"][aria-pressed="true"]{background:#2F6FB0;border-color:#2F6FB0;color:#fff}
+.callbtn{display:block;text-align:center;text-decoration:none}
 .spin svg{width:18px;height:18px}
 .spin i{position:absolute;right:-12px;top:-9px;font-style:normal;background:var(--sun);color:var(--ink);font-size:.66rem;font-weight:700;border-radius:9px;padding:1px 5px;border:1.5px solid #fff;white-space:nowrap}
 .lpin{width:38px;height:38px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:#C8553D;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);display:grid;place-items:center}
@@ -280,6 +283,7 @@ nav button[aria-current="page"]{color:var(--accent)}
   <div class="maplayers" id="mapLayers">
     <button class="chip" data-l="posts" aria-pressed="true">うちの子</button>
     <button class="chip" data-l="spots" aria-pressed="false">ドッグラン・カフェ</button>
+    <button class="chip" data-l="vet" aria-pressed="false">動物病院</button>
     <button class="chip" data-l="lost" aria-pressed="false">迷子・保護</button>
   </div>
   <div class="crosshair" id="crosshair" hidden><div></div></div>
@@ -870,7 +874,7 @@ async function openArea(list){
 }
 
 /* ================= 地図の表示切り替え ================= */
-const layers = Object.assign({posts:true, spots:false, lost:false}, ls.get("sanpo-layers", {}));
+const layers = Object.assign({posts:true, spots:false, vet:false, lost:false}, ls.get("sanpo-layers", {}));
 function paintLayerChips(){
   $("#mapLayers").querySelectorAll("[data-l]").forEach(b=>b.setAttribute("aria-pressed", !!layers[b.dataset.l]));
 }
@@ -884,8 +888,9 @@ function paintMapHint(){
   if(spotPick){ el.innerHTML=`<div class="pickbar"><b>地図を動かして、ピンの先を入口に合わせてください</b><div class="row2"><button class="btn" id="pickOk">ここに決める</button><button class="btn ghost" id="pickNo">やめる</button></div></div>`;
     $("#pickOk").onclick=()=>{ const c=map.getCenter(); endPick(); openSpotForm(null,{lat:c.lat,lon:c.lng}); };
     $("#pickNo").onclick=endPick; return; }
-  if(layers.spots && map.getZoom()<13) h+=`<small>ドッグラン・カフェは、もう少し地図を大きくすると出ます</small>`;
-  if(layers.spots && map.getZoom()>=13) h+=`<button class="pill" id="spotNew">＋ ドッグラン・カフェを追加</button>`;
+  const sv = layers.spots || layers.vet;
+  if(sv && map.getZoom()<13) h+=`<small>${layers.spots?"ドッグラン・カフェ":"動物病院"}は、もう少し地図を大きくすると出ます</small>`;
+  if(sv && map.getZoom()>=13) h+=`<button class="pill" id="spotNew">＋ ${layers.spots?"ドッグラン・カフェ":"動物病院"}を追加</button>`;
   if(layers.lost) h+=`<button class="pill" id="lostNew" style="background:#C8553D;color:#fff">＋ 迷子・保護を知らせる</button>`;
   el.innerHTML=h;
   const b=$("#lostNew"); if(b) b.onclick=openLostForm;
@@ -895,31 +900,34 @@ function paintMapHint(){
 /* ================= ドッグラン・カフェ ================= */
 const ICON_PARK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/></svg>`;
 const ICON_CAFE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3v3M12 3v3"/></svg>`;
+const ICON_VET = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 4h5v5.5H20v5h-5.5V20h-5v-5.5H4v-5h5.5z"/></svg>`;
 const spotCache = {}; let spotReq = 0;
 const starStr = n => "★".repeat(Math.round(n)) + "☆".repeat(5-Math.round(n));
 async function loadSpots(){
   if(!map) return;
-  if(!layers.spots || map.getZoom()<13){ spotLayer.clearLayers(); return; }
+  if(!(layers.spots||layers.vet) || map.getZoom()<13){ spotLayer.clearLayers(); return; }
   const b=map.getBounds(), r=v=>Math.round(v*50)/50; // 約2km単位でまとめて読み込む（同じ所を何度も聞かない）
   const s=r(b.getSouth())-0.02, w=r(b.getWest())-0.02, n=r(b.getNorth())+0.02, e=r(b.getEast())+0.02;
   const key=[s,w,n,e].map(v=>v.toFixed(2)).join(",");
   const my=++spotReq;
   let spots=spotCache[key];
   if(!spots){
-    const q=`[out:json][timeout:20];(nwr["leisure"="dog_park"](${key});nwr["amenity"~"^(cafe|restaurant)$"]["dog"~"^(yes|leashed|outside)$"](${key}););out center 200;`;
+    const q=`[out:json][timeout:20];(nwr["leisure"="dog_park"](${key});nwr["amenity"~"^(cafe|restaurant)$"]["dog"~"^(yes|leashed|outside)$"](${key});nwr["amenity"="veterinary"](${key}););out center 300;`;
     try{
       const res=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
       const j=await res.json();
       spots=(j.elements||[]).map(x=>({
         id:`${x.type}/${x.id}`, lat:x.lat??x.center?.lat, lon:x.lon??x.center?.lon,
-        type:x.tags?.leisure==="dog_park"?"dogpark":"cafe",
-        name:(x.tags?.["name:ja"]||x.tags?.name||(x.tags?.leisure==="dog_park"?"ドッグラン":"ペット可のお店")).slice(0,80),
-        dog:x.tags?.dog||"", hours:x.tags?.opening_hours||""
+        type:x.tags?.leisure==="dog_park"?"dogpark":x.tags?.amenity==="veterinary"?"vet":"cafe",
+        name:(x.tags?.["name:ja"]||x.tags?.name||(x.tags?.leisure==="dog_park"?"ドッグラン":x.tags?.amenity==="veterinary"?"動物病院":"ペット可のお店")).slice(0,80),
+        dog:x.tags?.dog||"", hours:x.tags?.opening_hours||"",
+        phone:(x.tags?.phone||x.tags?.["contact:phone"]||"").split(";")[0].trim(), web:x.tags?.website||x.tags?.["contact:website"]||"",
+        emergency:x.tags?.emergency==="yes"
       })).filter(x=>x.lat!=null);
       spotCache[key]=spots;
     }catch(err){ spots=null; }
   }
-  if(my!==spotReq || !layers.spots) return;
+  if(my!==spotReq || !(layers.spots||layers.vet)) return;
   let us=[];
   if(READY){
     const {data}=await sb.from("user_spots").select("*").gte("lat",s).lte("lat",n).gte("lon",w).lte("lon",e).limit(300);
@@ -927,7 +935,7 @@ async function loadSpots(){
   }
   if(my!==spotReq) return;
   if(!spots && !us.length){ toast("お店の情報を読み込めませんでした"); }
-  spots=[...(spots||[]), ...us];
+  spots=[...(spots||[]), ...us].filter(x=> x.type==="vet" ? layers.vet : layers.spots);
   const stats={};
   if(READY && spots.length){
     const {data}=await sb.from("spot_reviews").select("osm_id,stars").in("osm_id",spots.map(x=>x.id).slice(0,200));
@@ -937,7 +945,8 @@ async function loadSpots(){
   spotLayer.clearLayers();
   spots.forEach(x=>{
     const st=stats[x.id];
-    const icon=L.divIcon({className:"",html:`<div class="spin ${x.type==="dogpark"?"park":"cafe"}${x.user?" user":""}">${x.type==="dogpark"?ICON_PARK:ICON_CAFE}${st?`<i>★${(st.sum/st.n).toFixed(1)}</i>`:""}</div>`,iconSize:[34,34],iconAnchor:[17,17]});
+    const h24 = x.type==="vet" && (/24\/7/.test(x.hours) || x.emergency);
+    const icon=L.divIcon({className:"",html:`<div class="spin ${x.type==="dogpark"?"park":x.type==="vet"?"vet":"cafe"}${x.user?" user":""}">${x.type==="dogpark"?ICON_PARK:x.type==="vet"?ICON_VET:ICON_CAFE}${h24?`<i class="h24">24h</i>`:st?`<i>★${(st.sum/st.n).toFixed(1)}</i>`:""}</div>`,iconSize:[34,34],iconAnchor:[17,17]});
     L.marker([x.lat,x.lon],{icon}).addTo(spotLayer).on("click",()=>openSpot(x));
   });
 }
@@ -946,10 +955,11 @@ async function openSpot(x){
   const {data}=await sb.from("spot_reviews").select("id,user_id,stars,body,created_at,p:profiles!spot_reviews_user_id_fkey(nickname,dog_name,avatar_path,is_official)").eq("osm_id",x.id).order("created_at",{ascending:false}).limit(100);
   const list=data||[], mine=me?list.find(r=>r.user_id===me.id):null;
   const avg=list.length?list.reduce((a,r)=>a+r.stars,0)/list.length:0;
-  const kind = x.type==="dogpark" ? "ドッグラン" : (x.dog==="outside"?"テラス席なら犬OKのお店":x.dog==="leashed"?"リードをつければ犬OKのお店":"犬OKのお店");
+  const kind = x.type==="vet" ? "動物病院" : x.type==="dogpark" ? "ドッグラン" : (x.dog==="outside"?"テラス席なら犬OKのお店":x.dog==="leashed"?"リードをつければ犬OKのお店":"犬OKのお店");
   const body=sh.querySelector("#spotBody");
   const own = me && x.user && x.by===me.id;
-  body.innerHTML=`${x.user?`<p style="margin:0 0 6px"><span class="tag" style="background:var(--accent)">みんなが追加した場所</span></p>`:""}${x.note?`<p class="cap" style="margin:0 0 6px;white-space:pre-wrap">${esc(x.note)}</p>`:""}<p style="margin:0">${kind}${x.hours?`<br><small class="note">営業時間（地図の情報）：${esc(x.hours)}</small>`:""}</p>
+  body.innerHTML=`${x.user?`<p style="margin:0 0 6px"><span class="tag" style="background:var(--accent)">みんなが追加した場所</span></p>`:""}${x.note?`<p class="cap" style="margin:0 0 6px;white-space:pre-wrap">${esc(x.note)}</p>`:""}<p style="margin:0">${kind}${x.hours?`<br><small class="note">${x.type==="vet"?"診療時間":"営業時間"}（地図の情報）：${esc(x.hours.replace(/24\/7/,"24時間"))}</small>`:""}</p>
+    ${x.type==="vet"?`${x.phone?`<a class="btn callbtn" href="tel:${esc(x.phone.replace(/[^0-9+]/g,""))}">電話する（${esc(x.phone)}）</a>`:""}${x.web&&/^https?:\/\//.test(x.web)?`<a class="btn ghost callbtn" href="${esc(x.web)}" target="_blank" rel="noopener">ホームページを見る</a>`:""}<p class="note" style="margin:0">受診する前に、電話で診療時間と受け入れができるかを確かめてください。急ぎのときは、まず電話しましょう。</p>`:""}
     <p style="margin:8px 0">${list.length?`<span class="stars">${starStr(avg)}</span> <b>${avg.toFixed(1)}</b>（${list.length}件）`:`<span class="note">まだ口コミがありません。</span>`}</p>
     <div class="panel" style="gap:10px"><b>${mine?"あなたの口コミ":"口コミを書く"}</b>
       ${me?`<div class="starpick" id="spStars">${[1,2,3,4,5].map(i=>`<button data-s="${i}" aria-label="星${i}つ">★</button>`).join("")}</div>
@@ -959,7 +969,7 @@ async function openSpot(x){
     </div>
     <div class="cmts">${list.map(r=>`<div class="rv">${avatar(r.p?.avatar_path,r.p?.dog_name||r.p?.nickname)}<div style="flex:1;min-width:0"><button class="linkbtn" data-uid="${r.user_id}" style="padding:0"><b>${esc(r.p?.dog_name||r.p?.nickname||"飼い主さん")}</b>${r.p?.is_official?OFFICIAL:""}</button> <span class="stars" style="font-size:.85rem">${starStr(r.stars)}</span> <small class="note">${ago(r.created_at)}</small>${r.body?`<p>${esc(r.body)}</p>`:""}${me?.admin&&r.user_id!==me.id?`<button class="linkbtn" data-rdel="${r.id}" style="color:var(--danger);padding:0">削除（管理者）</button>`:""}</div></div>`).join("")}</div>
     ${x.user?`<div class="menu">${own?`<button id="usEdit">この場所の情報を直す</button><button class="danger" id="usDel">この場所を消す</button>`:`<button id="usRep">この場所を通報する（存在しない・自宅など）</button>`}${me?.admin&&!own?`<button class="danger" id="usAdm">削除（管理者）</button>`:""}</div>`:""}
-    <p class="note">${x.user?"この場所は利用者が追加したものです。":"お店の情報はOpenStreetMapのものです。"}お出かけ前に、お店のホームページなどで最新の情報を確かめてください。</p>`;
+    <p class="note">${x.user?"この場所は利用者が追加したものです。":(x.type==="vet"?"病院":"お店")+"の情報はOpenStreetMapのものです。"}お出かけ前に、お店のホームページなどで最新の情報を確かめてください。</p>`;
   const qq=s=>body.querySelector(s);
   if(qq("#usEdit")) qq("#usEdit").onclick=()=>openSpotForm(x,{lat:x.lat,lon:x.lon});
   const usRemove=async()=>{ const {error}=await sb.from("user_spots").delete().eq("id",x.uid); if(error) return toast("消せませんでした"); await sb.from("spot_reviews").delete().eq("osm_id",x.id); closeSheet(); toast("消しました"); loadSpots(); };
@@ -995,11 +1005,11 @@ function startPick(){
 function endPick(){ spotPick=false; $("#crosshair").hidden=true; $("#fab").hidden=!READY; paintMapHint(); }
 function openSpotForm(x, ll){
   if(!me) return needLogin();
-  let type=x?.type||"dogpark";
-  const sh=openSheet(`<div class="sheethead"><h2>${x?"場所の情報を直す":"ドッグラン・カフェを追加"}</h2><button class="x" data-close>×</button></div>
-    <div class="seg" id="sfType"><button data-t="dogpark">ドッグラン</button><button data-t="cafe">犬OKのお店</button></div>
+  let type=x?.type||(layers.spots?"dogpark":"vet");
+  const sh=openSheet(`<div class="sheethead"><h2>${x?"場所の情報を直す":"場所を追加"}</h2><button class="x" data-close>×</button></div>
+    <div class="seg" id="sfType"><button data-t="dogpark">ドッグラン</button><button data-t="cafe">犬OKのお店</button><button data-t="vet">動物病院</button></div>
     <input type="text" id="sfName" maxlength="60" placeholder="名前（例：○○公園ドッグラン）" value="${esc(x?.name||"")}">
-    <textarea id="sfNote" maxlength="200" placeholder="ひとこと（例：小型犬エリアあり・利用料500円・テラス席のみ犬OK）">${esc(x?.note||"")}</textarea>
+    <textarea id="sfNote" maxlength="200" placeholder="ひとこと（例：小型犬エリアあり・利用料500円／夜間も診療・猫も診てもらえる）">${esc(x?.note||"")}</textarea>
     <p class="note">お店や公園など、誰でも行ける場所だけを追加してください。個人の家は追加しないでください。</p>
     <button class="btn wide" id="sfSave">${x?"保存する":"追加する"}</button>`);
   const q=s=>sh.querySelector(s);
