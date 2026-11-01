@@ -1,6 +1,6 @@
 {
   "appId": "io.github.sanpolab.sanpo",
-  "appName": "さんぽ路面計",
+  "appName": "にくきゅうレーダー",
   "webDir": "www",
   "ios": {
     "appendUserAgent": "SanpoRomenkei/1.0 (+https://sanpolab.github.io/sanpo/)",

@@ -41,7 +41,7 @@ jobs:
           set_str NSCameraUsageDescription "うちの子の写真を撮って投稿するために使います。"
           set_str NSPhotoLibraryUsageDescription "うちの子の写真を選んで投稿するために使います。"
           set_str NSPhotoLibraryAddUsageDescription "判定のシェア画像を保存するために使います。"
-          set_str CFBundleDisplayName "さんぽ路面計"
+          set_str CFBundleDisplayName "にくきゅうレーダー"
           /usr/libexec/PlistBuddy -c "Delete :ITSAppUsesNonExemptEncryption" "$PL" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PL"
 
