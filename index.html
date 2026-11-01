@@ -620,7 +620,7 @@ async function loadMapPosts(){
   if(!READY||!map) return;
   const b = map.getBounds();
   // 投稿から1時間たったものだけを地図に出す（今どこにいるかが分からないように）
-  const {data} = await sb.from("posts").select("id,image_path,lat_grid,lon_grid,area_name,created_at,profiles!inner(is_private)")
+  const {data} = await sb.from("posts").select("id,image_path,lat_grid,lon_grid,area_name,created_at,profiles!posts_user_id_fkey!inner(is_private)")
     .eq("profiles.is_private",false).not("lat_grid","is",null).lt("created_at",new Date(Date.now()-HOUR).toISOString())
     .gte("lat_grid",b.getSouth()-0.05).lte("lat_grid",b.getNorth()+0.05)
     .gte("lon_grid",b.getWest()-0.05).lte("lon_grid",b.getEast()+0.05).order("created_at",{ascending:false}).limit(300);
@@ -639,7 +639,7 @@ async function openArea(list){
 }
 
 /* ================= 投稿 ================= */
-const POST_COLS = "id,user_id,image_path,caption,area_name,lat_grid,lon_grid,created_at,profiles(nickname,dog_name,dog_breed,avatar_path,pet_type,is_private),likes(count),comments(count)";
+const POST_COLS = "id,user_id,image_path,caption,area_name,lat_grid,lon_grid,created_at,profiles!posts_user_id_fkey(nickname,dog_name,dog_breed,avatar_path,pet_type,is_private),likes!likes_post_id_fkey(count),comments!comments_post_id_fkey(count)";
 let likedSet = new Set(), postCache = {};
 async function fetchPosts(filter, limit=30){
   if(!READY) return [];
@@ -728,7 +728,7 @@ async function openComments(id){
   const sh = openSheet(`<div class="sheethead"><h2>コメント</h2><button class="x" data-close>×</button></div><div class="cmts" id="cmts"><p class="note">読み込み中…</p></div>
     ${me?`<div class="row2"><input type="text" id="cmtIn" maxlength="200" placeholder="やさしい言葉でコメント"><button class="btn" id="cmtBtn" style="flex:0 0 auto">送る</button></div>`:`<button class="btn ghost" id="cmtLogin">ログインしてコメントする</button>`}`);
   const load = async()=>{
-    const {data} = await sb.from("comments").select("id,body,created_at,user_id,profiles(nickname,dog_name,avatar_path)").eq("post_id",id).order("created_at");
+    const {data} = await sb.from("comments").select("id,body,created_at,user_id,profiles!comments_user_id_fkey(nickname,dog_name,avatar_path)").eq("post_id",id).order("created_at");
     sh.querySelector("#cmts").innerHTML = (data&&data.length) ? data.map(c=>`<div class="cmt">${avatar(c.profiles?.avatar_path,c.profiles?.dog_name||c.profiles?.nickname)}<div><small>${esc(c.profiles?.nickname||"飼い主さん")} ・ ${ago(c.created_at)}${me&&c.user_id===me.id?` ・ <a href="#" data-del="${c.id}">削除</a>`:""}</small><p>${esc(c.body)}</p></div></div>`).join("") : `<p class="note">まだコメントはありません。</p>`;
     sh.querySelectorAll("[data-del]").forEach(a=>a.onclick=async ev=>{ ev.preventDefault(); await sb.from("comments").delete().eq("id",+a.dataset.del); load(); });
     if(p){ p.cmtCount = data?data.length:0; document.querySelectorAll(`.post[data-id="${id}"] [data-act="comments"] span`).forEach(s=>s.textContent=p.cmtCount); }
@@ -1080,7 +1080,7 @@ async function openNotes(){
   if(!me) return needLogin();
   const sh = openSheet(`<div class="sheethead"><h2>お知らせ</h2><button class="x" data-close>×</button></div><div class="notes" id="notes"><p class="note">読み込み中…</p></div>`);
   const {data,error} = await sb.from("notifications")
-    .select("id,kind,read,created_at,post_id,actor_id,actor:profiles!notifications_actor_id_fkey(nickname,dog_name,avatar_path),posts(image_path),comments(body)")
+    .select("id,kind,read,created_at,post_id,actor_id,actor:profiles!notifications_actor_id_fkey(nickname,dog_name,avatar_path),posts!notifications_post_id_fkey(image_path),comments!notifications_comment_id_fkey(body)")
     .eq("user_id",me.id).order("created_at",{ascending:false}).limit(60);
   const el = sh.querySelector("#notes");
   if(error){ el.innerHTML=`<p class="note">お知らせを読み込めませんでした。</p>`; return; }
