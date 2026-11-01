@@ -173,7 +173,7 @@ h2{font-size:1.2rem}
 .seg{border-radius:var(--wob1)}
 .seg button{border-radius:var(--wob3)}
 .seg button[aria-pressed="true"]{background:var(--sun);color:var(--ink)}
-input[type=text],input[type=email],textarea{border:2px solid var(--line);border-radius:16px 12px 18px 14px / 12px 18px 14px 16px;background:#FFFDF7}
+input[type=text],input[type=email],textarea{font-size:16px;border:2px solid var(--line);border-radius:16px 12px 18px 14px / 12px 18px 14px 16px;background:#FFFDF7}
 .fab{background:var(--sun);color:var(--ink);border:2.5px solid var(--ink)}
 .new{background:var(--sun);color:var(--ink)}
 nav{background:#FFFDF7;border-top:2px solid var(--line)}
@@ -646,7 +646,7 @@ async function fetchPosts(filter, limit=30){
   let q = sb.from("posts").select(POST_COLS).order("created_at",{ascending:false}).limit(limit);
   q = filter ? filter(q) : q;
   const {data,error} = await q;
-  if(error){ toast("投稿を読み込めませんでした"); return []; }
+  if(error){ console.error(error); toast("投稿を読み込めませんでした（"+(error.message||error.code||"")+"）"); return []; }
   const posts = data||[];
   posts.forEach(p=>{ p.likeCount=p.likes?.[0]?.count||0; p.cmtCount=p.comments?.[0]?.count||0; postCache[p.id]=p; });
   if(me && posts.length){
