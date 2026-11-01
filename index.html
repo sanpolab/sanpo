@@ -182,6 +182,18 @@ nav button[aria-current="page"]{color:var(--accent)}
 .sheet{background:var(--bg);border-radius:30px 26px 0 0}
 .pill{border:2px solid var(--ink);box-shadow:none}
 
+
+.bell{position:relative;border:0;background:none;padding:6px;cursor:pointer;color:var(--ink);align-self:center}
+.badge{position:absolute;top:0;right:-2px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--like);color:#fff;font-size:.72rem;font-weight:700;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.badge.dot{min-width:10px;width:10px;height:10px;padding:0;top:10px;right:calc(50% - 18px)}
+.act.liked{color:var(--like)}
+.notes{display:flex;flex-direction:column;gap:8px}
+.note-item{display:flex;gap:10px;align-items:center;background:var(--card);border:0;border-radius:var(--wob1);padding:10px 12px;text-align:left;cursor:pointer;width:100%}
+.note-item.unread{background:#FFF7E0}
+.note-item p{margin:0;font-size:.9rem;line-height:1.5;flex:1;min-width:0;word-break:break-word}
+.note-item small{color:var(--muted)}
+.note-item .thumb{width:44px;height:44px;border-radius:10px;background:var(--line) center/cover no-repeat;flex:none}
+
 /* 判定のシーン */
 .scene{position:relative;height:300px;border-radius:34px 26px 38px 28px / 28px 36px 26px 34px;overflow:hidden;background:var(--scene-sky)}
 .scene svg.bgart{position:absolute;inset:0;width:100%;height:100%}
@@ -233,7 +245,7 @@ nav button[aria-current="page"]{color:var(--accent)}
 </main>
 
 <main class="view" id="tab-feed" hidden>
-  <div class="top"><h1>みんなのうちの子</h1></div>
+  <div class="top"><h1>みんなのうちの子</h1><button class="bell" id="bellBtn" aria-label="お知らせ"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="badge" id="bellBadge" hidden></span></button></div>
   <div class="seg" id="feedSeg">
     <button data-f="new" aria-pressed="true">新着</button>
     <button data-f="near" aria-pressed="false">近く</button>
@@ -253,7 +265,7 @@ nav button[aria-current="page"]{color:var(--accent)}
 <nav>
   <button data-tab="home" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>判定</button>
   <button data-tab="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>マップ</button>
-  <button data-tab="feed"><svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="7" cy="9" rx="2" ry="2.6"/><ellipse cx="17" cy="9" rx="2" ry="2.6"/><ellipse cx="10.3" cy="5.2" rx="1.9" ry="2.5"/><ellipse cx="13.7" cy="5.2" rx="1.9" ry="2.5"/><path d="M12 11.5c-3 0-6 3.6-6 6.2 0 1.6 1.4 2.3 3 2.3 1.2 0 2-.6 3-.6s1.8.6 3 .6c1.6 0 3-.7 3-2.3 0-2.6-3-6.2-6-6.2z"/></svg>みんな</button>
+  <button data-tab="feed" style="position:relative"><span class="badge dot" id="navBadge" hidden></span><svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="7" cy="9" rx="2" ry="2.6"/><ellipse cx="17" cy="9" rx="2" ry="2.6"/><ellipse cx="10.3" cy="5.2" rx="1.9" ry="2.5"/><ellipse cx="13.7" cy="5.2" rx="1.9" ry="2.5"/><path d="M12 11.5c-3 0-6 3.6-6 6.2 0 1.6 1.4 2.3 3 2.3 1.2 0 2-.6 3-.6s1.8.6 3 .6c1.6 0 3-.7 3-2.3 0-2.6-3-6.2-6-6.2z"/></svg>みんな</button>
   <button data-tab="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>マイページ</button>
 </nav>
 
@@ -643,7 +655,7 @@ async function fetchPosts(filter, limit=30){
   }
   return posts;
 }
-const heart = f => `<svg viewBox="0 0 24 24" fill="${f?"currentColor":"none"}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-9.3-9.2C1.4 7.3 3.6 4 7 4c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.6 3.3 4.3 6.8C19.5 15.4 12 20 12 20z"/></svg>`;
+const heart = f => `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="${f?"currentColor":"none"}" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="15.3" rx="5.4" ry="4.6"/><ellipse cx="5.6" cy="10" rx="2" ry="2.5"/><ellipse cx="9.6" cy="6" rx="2" ry="2.5"/><ellipse cx="14.4" cy="6" rx="2" ry="2.5"/><ellipse cx="18.4" cy="10" rx="2" ry="2.5"/></g></svg>`;
 const bubble = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>`;
 function postCard(p){
   const pr=p.profiles||{}, liked=likedSet.has(p.id), fresh = Date.now()-new Date(p.created_at) < 24*HOUR;
@@ -654,7 +666,7 @@ function postCard(p){
       <button class="more" data-act="menu" aria-label="メニュー">⋯</button></div>
     <img class="pimg" src="${photo(p.image_path)}" alt="${esc(pr.dog_name||petWord(pr.pet_type))}の写真" loading="lazy">
     <div class="pbody"><div class="acts">
-      <button class="act ${liked?"liked":""}" data-act="like" aria-pressed="${liked}">${heart(liked)}<span>${p.likeCount}</span></button>
+      <button class="act ${liked?"liked":""}" data-act="like" aria-pressed="${liked}" aria-label="肉球（いいね）">${heart(liked)}<span>${p.likeCount}</span></button>
       <button class="act" data-act="comments">${bubble}<span>${p.cmtCount}</span></button></div>
       ${p.caption?`<p class="cap">${esc(p.caption)}</p>`:""}</div></article>`;
 }
@@ -900,13 +912,13 @@ $("#fab").onclick = openComposer;
 
 /* ================= ログインとマイページ ================= */
 async function loadMe(session){
-  if(!session){ me=null; renderMe(); return; }
+  if(!session){ me=null; renderMe(); unread=0; paintBadges(); return; }
   let {data:pr} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
   if(!pr){ await sb.from("profiles").insert({id:session.user.id}); ({data:pr} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle()); }
   pr = pr || {id:session.user.id,nickname:"飼い主さん",dog_name:"",dog_breed:""};
   me = {id:session.user.id, email:session.user.email, profile:pr};
   if(pr.pet_type) pet = {species:pr.pet_type, size:pr.dog_size||"small", age:pr.dog_age||"adult", brachy:pr.brachy?"yes":"no"};
-  ls.set("sanpo-profile",pet); computeWeather(); renderPetChips(); renderMe();
+  ls.set("sanpo-profile",pet); computeWeather(); renderPetChips(); renderMe(); refreshUnread();
 }
 async function renderMe(){
   const el=$("#meBody");
@@ -1038,6 +1050,51 @@ function openLegal(kind){
     <h3>6. お問い合わせ</h3><p>${c}</p><p class="note">${CONFIG.updated} 制定</p></div>`;
   openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div>${kind==="terms"?terms:privacy}`);
 }
+
+
+/* ================= お知らせ ================= */
+let unread = 0;
+async function refreshUnread(){
+  if(!me){ unread=0; paintBadges(); return; }
+  const {count} = await sb.from("notifications").select("id",{count:"exact",head:true}).eq("user_id",me.id).eq("read",false);
+  unread = count||0; paintBadges();
+}
+function paintBadges(){
+  const b=$("#bellBadge"), n=$("#navBadge");
+  if(b){ b.hidden = !unread; b.textContent = unread>99?"99+":unread; }
+  if(n) n.hidden = !unread;
+}
+setInterval(()=>{ if(me && document.visibilityState==="visible") refreshUnread(); }, 60000);
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && me) refreshUnread(); });
+function noteText(n){
+  const who = `<b>${esc(n.actor?.dog_name||n.actor?.nickname||"だれか")}</b>`;
+  return ({
+    like: `${who} があなたの投稿に肉球を押しました`,
+    comment: `${who} がコメントしました：「${esc((n.comments?.body||"").slice(0,40))}」`,
+    follow: `${who} にフォローされました`,
+    follow_request: `${who} からフォローリクエストが届きました`,
+    follow_accept: `${who} がフォローを承認しました`
+  })[n.kind] || "";
+}
+async function openNotes(){
+  if(!me) return needLogin();
+  const sh = openSheet(`<div class="sheethead"><h2>お知らせ</h2><button class="x" data-close>×</button></div><div class="notes" id="notes"><p class="note">読み込み中…</p></div>`);
+  const {data,error} = await sb.from("notifications")
+    .select("id,kind,read,created_at,post_id,actor_id,actor:profiles!notifications_actor_id_fkey(nickname,dog_name,avatar_path),posts(image_path),comments(body)")
+    .eq("user_id",me.id).order("created_at",{ascending:false}).limit(60);
+  const el = sh.querySelector("#notes");
+  if(error){ el.innerHTML=`<p class="note">お知らせを読み込めませんでした。</p>`; return; }
+  if(!data.length){ el.innerHTML=`<p class="note">まだお知らせはありません。投稿に肉球やコメントがつくと、ここに届きます。</p>`; return; }
+  el.innerHTML = data.map(n=>`<button class="note-item ${n.read?"":"unread"}" data-n="${n.id}">${avatar(n.actor?.avatar_path, n.actor?.dog_name||n.actor?.nickname)}<p>${noteText(n)}<br><small>${ago(n.created_at)}</small></p>${n.posts?.image_path?`<span class="thumb" style="background-image:url('${photo(n.posts.image_path)}')"></span>`:""}</button>`).join("");
+  el.querySelectorAll("[data-n]").forEach(b=>b.onclick=async()=>{
+    const n = data.find(x=>x.id===+b.dataset.n);
+    if(n.kind==="follow_request"){ closeSheet(); go("me"); return; }
+    if(n.post_id){ const ps = await fetchPosts(q=>q.eq("id",n.post_id)); if(ps[0]) openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div>${postCard(ps[0])}`); else toast("この投稿は見られなくなりました"); return; }
+    openUser(n.actor_id);
+  });
+  if(data.some(n=>!n.read)){ await sb.from("notifications").update({read:true}).eq("user_id",me.id).eq("read",false); unread=0; paintBadges(); }
+}
+$("#bellBtn").onclick = openNotes;
 
 /* ================= 画面切り替え ================= */
 function go(tab){
