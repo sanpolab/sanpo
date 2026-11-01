@@ -120,6 +120,10 @@ textarea{resize:vertical;min-height:80px}
 .lostimg{width:100%;max-height:360px;object-fit:cover;border-radius:18px;background:var(--line)}
 .tag{display:inline-block;font-size:.75rem;font-weight:700;border-radius:99px;padding:2px 10px;color:#fff;background:#C8553D}.tag.found{background:#2F6FB0}.tag.done{background:var(--muted)}
 input[type=datetime-local]{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:2px solid var(--line);border-radius:16px;background:#FFFDF7;color:var(--ink)}
+.crosshair{position:fixed;inset:0 0 calc(var(--nav-h) + env(safe-area-inset-bottom,0px)) 0;z-index:450;display:grid;place-items:center;pointer-events:none}
+.crosshair div{width:44px;height:44px;margin-top:-44px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:var(--accent);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+.pickbar{background:var(--card);border-radius:var(--wob1);padding:12px;box-shadow:0 2px 12px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:8px;text-align:center;width:min(340px,calc(100vw - 32px))}
+.spin.user{outline:2.5px dashed rgba(255,255,255,.9);outline-offset:1px}
 .me-dot{width:18px;height:18px;border-radius:50%;background:#2B7BE4;border:3px solid #fff;box-shadow:0 0 0 6px rgba(43,123,228,.25)}
 
 .seg{display:flex;background:var(--card);border-radius:12px;padding:4px;gap:4px}
@@ -278,6 +282,7 @@ nav button[aria-current="page"]{color:var(--accent)}
     <button class="chip" data-l="spots" aria-pressed="false">ドッグラン・カフェ</button>
     <button class="chip" data-l="lost" aria-pressed="false">迷子・保護</button>
   </div>
+  <div class="crosshair" id="crosshair" hidden><div></div></div>
   <div class="maphint" id="mapHint"></div>
 </main>
 
@@ -876,10 +881,15 @@ function refreshMap(){ loadMapPosts(); loadSpots(); loadLost(); paintMapHint(); 
 function paintMapHint(){
   const el=$("#mapHint"); if(!el||!map) return;
   let h="";
+  if(spotPick){ el.innerHTML=`<div class="pickbar"><b>地図を動かして、ピンの先を入口に合わせてください</b><div class="row2"><button class="btn" id="pickOk">ここに決める</button><button class="btn ghost" id="pickNo">やめる</button></div></div>`;
+    $("#pickOk").onclick=()=>{ const c=map.getCenter(); endPick(); openSpotForm(null,{lat:c.lat,lon:c.lng}); };
+    $("#pickNo").onclick=endPick; return; }
   if(layers.spots && map.getZoom()<13) h+=`<small>ドッグラン・カフェは、もう少し地図を大きくすると出ます</small>`;
+  if(layers.spots && map.getZoom()>=13) h+=`<button class="pill" id="spotNew">＋ ドッグラン・カフェを追加</button>`;
   if(layers.lost) h+=`<button class="pill" id="lostNew" style="background:#C8553D;color:#fff">＋ 迷子・保護を知らせる</button>`;
   el.innerHTML=h;
   const b=$("#lostNew"); if(b) b.onclick=openLostForm;
+  const sn=$("#spotNew"); if(sn) sn.onclick=startPick;
 }
 
 /* ================= ドッグラン・カフェ ================= */
@@ -907,9 +917,17 @@ async function loadSpots(){
         dog:x.tags?.dog||"", hours:x.tags?.opening_hours||""
       })).filter(x=>x.lat!=null);
       spotCache[key]=spots;
-    }catch(err){ if(my===spotReq) toast("お店の情報を読み込めませんでした"); return; }
+    }catch(err){ spots=null; }
   }
   if(my!==spotReq || !layers.spots) return;
+  let us=[];
+  if(READY){
+    const {data}=await sb.from("user_spots").select("*").gte("lat",s).lte("lat",n).gte("lon",w).lte("lon",e).limit(300);
+    us=(data||[]).map(x=>({id:"u/"+x.id, uid:x.id, user:true, by:x.user_id, lat:+x.lat, lon:+x.lon, type:x.spot_type, name:x.name, note:x.note, dog:"", hours:""}));
+  }
+  if(my!==spotReq) return;
+  if(!spots && !us.length){ toast("お店の情報を読み込めませんでした"); }
+  spots=[...(spots||[]), ...us];
   const stats={};
   if(READY && spots.length){
     const {data}=await sb.from("spot_reviews").select("osm_id,stars").in("osm_id",spots.map(x=>x.id).slice(0,200));
@@ -919,7 +937,7 @@ async function loadSpots(){
   spotLayer.clearLayers();
   spots.forEach(x=>{
     const st=stats[x.id];
-    const icon=L.divIcon({className:"",html:`<div class="spin ${x.type==="dogpark"?"park":"cafe"}">${x.type==="dogpark"?ICON_PARK:ICON_CAFE}${st?`<i>★${(st.sum/st.n).toFixed(1)}</i>`:""}</div>`,iconSize:[34,34],iconAnchor:[17,17]});
+    const icon=L.divIcon({className:"",html:`<div class="spin ${x.type==="dogpark"?"park":"cafe"}${x.user?" user":""}">${x.type==="dogpark"?ICON_PARK:ICON_CAFE}${st?`<i>★${(st.sum/st.n).toFixed(1)}</i>`:""}</div>`,iconSize:[34,34],iconAnchor:[17,17]});
     L.marker([x.lat,x.lon],{icon}).addTo(spotLayer).on("click",()=>openSpot(x));
   });
 }
@@ -930,7 +948,8 @@ async function openSpot(x){
   const avg=list.length?list.reduce((a,r)=>a+r.stars,0)/list.length:0;
   const kind = x.type==="dogpark" ? "ドッグラン" : (x.dog==="outside"?"テラス席なら犬OKのお店":x.dog==="leashed"?"リードをつければ犬OKのお店":"犬OKのお店");
   const body=sh.querySelector("#spotBody");
-  body.innerHTML=`<p style="margin:0">${kind}${x.hours?`<br><small class="note">営業時間（地図の情報）：${esc(x.hours)}</small>`:""}</p>
+  const own = me && x.user && x.by===me.id;
+  body.innerHTML=`${x.user?`<p style="margin:0 0 6px"><span class="tag" style="background:var(--accent)">みんなが追加した場所</span></p>`:""}${x.note?`<p class="cap" style="margin:0 0 6px;white-space:pre-wrap">${esc(x.note)}</p>`:""}<p style="margin:0">${kind}${x.hours?`<br><small class="note">営業時間（地図の情報）：${esc(x.hours)}</small>`:""}</p>
     <p style="margin:8px 0">${list.length?`<span class="stars">${starStr(avg)}</span> <b>${avg.toFixed(1)}</b>（${list.length}件）`:`<span class="note">まだ口コミがありません。</span>`}</p>
     <div class="panel" style="gap:10px"><b>${mine?"あなたの口コミ":"口コミを書く"}</b>
       ${me?`<div class="starpick" id="spStars">${[1,2,3,4,5].map(i=>`<button data-s="${i}" aria-label="星${i}つ">★</button>`).join("")}</div>
@@ -939,7 +958,18 @@ async function openSpot(x){
       :`<p class="note" style="margin:0">ログインすると口コミを書けます。</p><button class="btn ghost" id="spLogin">ログインする</button>`}
     </div>
     <div class="cmts">${list.map(r=>`<div class="rv">${avatar(r.p?.avatar_path,r.p?.dog_name||r.p?.nickname)}<div style="flex:1;min-width:0"><button class="linkbtn" data-uid="${r.user_id}" style="padding:0"><b>${esc(r.p?.dog_name||r.p?.nickname||"飼い主さん")}</b>${r.p?.is_official?OFFICIAL:""}</button> <span class="stars" style="font-size:.85rem">${starStr(r.stars)}</span> <small class="note">${ago(r.created_at)}</small>${r.body?`<p>${esc(r.body)}</p>`:""}${me?.admin&&r.user_id!==me.id?`<button class="linkbtn" data-rdel="${r.id}" style="color:var(--danger);padding:0">削除（管理者）</button>`:""}</div></div>`).join("")}</div>
-    <p class="note">お店の情報はOpenStreetMapのものです。お出かけ前に、お店のホームページなどで最新の情報を確かめてください。</p>`;
+    ${x.user?`<div class="menu">${own?`<button id="usEdit">この場所の情報を直す</button><button class="danger" id="usDel">この場所を消す</button>`:`<button id="usRep">この場所を通報する（存在しない・自宅など）</button>`}${me?.admin&&!own?`<button class="danger" id="usAdm">削除（管理者）</button>`:""}</div>`:""}
+    <p class="note">${x.user?"この場所は利用者が追加したものです。":"お店の情報はOpenStreetMapのものです。"}お出かけ前に、お店のホームページなどで最新の情報を確かめてください。</p>`;
+  const qq=s=>body.querySelector(s);
+  if(qq("#usEdit")) qq("#usEdit").onclick=()=>openSpotForm(x,{lat:x.lat,lon:x.lon});
+  const usRemove=async()=>{ const {error}=await sb.from("user_spots").delete().eq("id",x.uid); if(error) return toast("消せませんでした"); await sb.from("spot_reviews").delete().eq("osm_id",x.id); closeSheet(); toast("消しました"); loadSpots(); };
+  if(qq("#usDel")) qq("#usDel").onclick=usRemove;
+  if(qq("#usAdm")) qq("#usAdm").onclick=usRemove;
+  if(qq("#usRep")) qq("#usRep").onclick=()=>{
+    if(!me) return needLogin();
+    const s2=openSheet(`<h2>この場所を通報する理由</h2><div class="menu">${["存在しない・閉店した","個人の家など","ペットNGだった","不適切な名前・内容"].map(r=>`<button data-r="${r}">${r}</button>`).join("")}<button data-close>やめる</button></div>`);
+    s2.querySelectorAll("[data-r]").forEach(b=>b.onclick=async()=>{ const {error}=await sb.from("spot_reports").insert({spot_id:x.uid, reason:b.dataset.r}); closeSheet(); toast(error&&error.code==="23505"?"すでに通報済みです":error?"通報できませんでした":"通報しました。ご協力ありがとうございます"); });
+  };
   body.querySelectorAll("[data-uid]").forEach(b=>b.onclick=()=>openUser(b.dataset.uid));
   body.querySelectorAll("[data-rdel]").forEach(b=>b.onclick=async()=>{ const {error}=await sb.from("spot_reviews").delete().eq("id",+b.dataset.rdel); toast(error?"削除できませんでした":"削除しました"); openSpot(x); loadSpots(); });
   const lg=body.querySelector("#spLogin"); if(lg) lg.onclick=needLogin;
@@ -954,6 +984,42 @@ async function openSpot(x){
     toast("口コミを投稿しました"); openSpot(x); loadSpots();
   };
   const del=body.querySelector("#spDel"); if(del) del.onclick=async()=>{ await sb.from("spot_reviews").delete().eq("id",mine.id); toast("口コミを消しました"); openSpot(x); loadSpots(); };
+}
+
+let spotPick=false;
+function startPick(){
+  if(!me) return needLogin();
+  spotPick=true; $("#crosshair").hidden=false; $("#fab").hidden=true; paintMapHint();
+  if(map.getZoom()<16) map.setView([map.getCenter().lat,map.getCenter().lng],16);
+}
+function endPick(){ spotPick=false; $("#crosshair").hidden=true; $("#fab").hidden=!READY; paintMapHint(); }
+function openSpotForm(x, ll){
+  if(!me) return needLogin();
+  let type=x?.type||"dogpark";
+  const sh=openSheet(`<div class="sheethead"><h2>${x?"場所の情報を直す":"ドッグラン・カフェを追加"}</h2><button class="x" data-close>×</button></div>
+    <div class="seg" id="sfType"><button data-t="dogpark">ドッグラン</button><button data-t="cafe">犬OKのお店</button></div>
+    <input type="text" id="sfName" maxlength="60" placeholder="名前（例：○○公園ドッグラン）" value="${esc(x?.name||"")}">
+    <textarea id="sfNote" maxlength="200" placeholder="ひとこと（例：小型犬エリアあり・利用料500円・テラス席のみ犬OK）">${esc(x?.note||"")}</textarea>
+    <p class="note">お店や公園など、誰でも行ける場所だけを追加してください。個人の家は追加しないでください。</p>
+    <button class="btn wide" id="sfSave">${x?"保存する":"追加する"}</button>`);
+  const q=s=>sh.querySelector(s);
+  const paint=()=>q("#sfType").querySelectorAll("[data-t]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.t===type));
+  q("#sfType").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{ type=b.dataset.t; paint(); }); paint();
+  q("#sfSave").onclick=async()=>{
+    const name=q("#sfName").value.trim(); if(!name) return toast("名前を入れてください");
+    const row={name, spot_type:type, note:q("#sfNote").value.trim()};
+    let error;
+    if(x){ ({error}=await sb.from("user_spots").update(row).eq("id",x.uid)); }
+    else {
+      // すぐ近く（約50m以内）に同じ種類の場所があれば確認する
+      const {data:near}=await sb.from("user_spots").select("name").eq("spot_type",type).gte("lat",ll.lat-0.0005).lte("lat",ll.lat+0.0005).gte("lon",ll.lon-0.0006).lte("lon",ll.lon+0.0006).limit(1);
+      if(near&&near.length&&!q("#sfSave").dataset.ok){ q("#sfSave").dataset.ok=1; q("#sfSave").textContent="それでも追加する"; return toast(`すぐ近くに「${near[0].name}」があります。同じ場所なら追加しなくて大丈夫です`); }
+      row.lat=+ll.lat.toFixed(5); row.lon=+ll.lon.toFixed(5);
+      ({error}=await sb.from("user_spots").insert(row));
+    }
+    if(error) return toast("保存できませんでした");
+    closeSheet(); toast(x?"保存しました":"追加しました。ありがとうございます"); loadSpots();
+  };
 }
 
 /* ================= 迷子・保護の掲示板 ================= */
@@ -1519,8 +1585,13 @@ async function renderAdmin(){
   if(error){ el.innerHTML=`<p class="note">読み込めませんでした。</p>`; return; }
   const by={}; (data||[]).forEach(r=>{ (by[r.post_id]=by[r.post_id]||{id:r.post_id,reasons:[],last:r.created_at}).reasons.push(r.reason); });
   const items=Object.values(by).sort((a,b)=>b.reasons.length-a.reasons.length);
-  const {data:urs}=await sb.from("user_reports").select("id,target_id,reason,created_at,t:profiles!user_reports_target_id_fkey(nickname,dog_name)").order("created_at",{ascending:false}).limit(100);
-  const uhtml = (urs&&urs.length)?`<h3>ユーザーへの通報</h3><div class="notes">${urs.map(r=>`<div class="note-item" style="cursor:default"><p><b>${esc(r.t?.dog_name||r.t?.nickname||"ユーザー")}</b>：${esc(r.reason)}<br><small>${ago(r.created_at)}</small></p><button class="btn ghost" data-uopen="${r.target_id}" style="flex:0 0 auto;min-height:36px;padding:4px 10px">見る</button><button class="btn ghost" data-uok="${r.id}" style="flex:0 0 auto;min-height:36px;padding:4px 10px">済</button></div>`).join("")}</div>`:"";
+  let {data:urs}=await sb.from("user_reports").select("id,target_id,reason,created_at,t:profiles!user_reports_target_id_fkey(nickname,dog_name)").order("created_at",{ascending:false}).limit(100);
+  let uhtml = (urs&&urs.length)?`<h3>ユーザーへの通報</h3><div class="notes">${urs.map(r=>`<div class="note-item" style="cursor:default"><p><b>${esc(r.t?.dog_name||r.t?.nickname||"ユーザー")}</b>：${esc(r.reason)}<br><small>${ago(r.created_at)}</small></p><button class="btn ghost" data-uopen="${r.target_id}" style="flex:0 0 auto;min-height:36px;padding:4px 10px">見る</button><button class="btn ghost" data-uok="${r.id}" style="flex:0 0 auto;min-height:36px;padding:4px 10px">済</button></div>`).join("")}</div>`:"";
+  const {data:srs}=await sb.from("spot_reports").select("spot_id,reason,s:user_spots(name,spot_type,lat,lon)").order("created_at",{ascending:false}).limit(100);
+  const sby={}; (srs||[]).forEach(r=>{ (sby[r.spot_id]=sby[r.spot_id]||{id:r.spot_id,s:r.s,reasons:[]}).reasons.push(r.reason); });
+  const sitems=Object.values(sby);
+  const shtml = sitems.length?`<h3>場所への通報</h3><div class="notes">${sitems.map(i=>`<div class="note-item" style="cursor:default"><p><b>${esc(i.s?.name||"（消えた場所）")}</b> 通報${i.reasons.length}件${i.reasons.length>=3?"（非表示中）":""}<br><small>${esc([...new Set(i.reasons)].join("・"))}</small></p><button class="btn danger" data-sdel="${i.id}" style="flex:0 0 auto;min-height:36px;padding:4px 10px">削除</button><button class="btn ghost" data-sok="${i.id}" style="flex:0 0 auto;min-height:36px;padding:4px 10px">問題なし</button></div>`).join("")}</div>`:"";
+  uhtml += shtml;
   if(!items.length){ el.innerHTML=(uhtml||`<p class="note">確認待ちの通報はありません。</p>`); bindUserReports(el); return; }
   const {data:ps}=await sb.from("posts").select("id,image_path,caption,user_id").in("id",items.map(i=>i.id));
   const pm={}; (ps||[]).forEach(p=>pm[p.id]=p);
@@ -1532,6 +1603,8 @@ async function renderAdmin(){
 function bindUserReports(el){
   el.querySelectorAll("[data-uopen]").forEach(b=>b.onclick=()=>openUser(b.dataset.uopen));
   el.querySelectorAll("[data-uok]").forEach(b=>b.onclick=async()=>{ await sb.from("user_reports").delete().eq("id",+b.dataset.uok); toast("確認済みにしました"); renderAdmin(); });
+  el.querySelectorAll("[data-sdel]").forEach(b=>b.onclick=async()=>{ const {error}=await sb.from("user_spots").delete().eq("id",+b.dataset.sdel); if(error) return toast("削除できませんでした"); await sb.from("spot_reviews").delete().eq("osm_id","u/"+b.dataset.sdel); toast("削除しました"); renderAdmin(); });
+  el.querySelectorAll("[data-sok]").forEach(b=>b.onclick=async()=>{ await sb.from("spot_reports").delete().eq("spot_id",+b.dataset.sok); toast("通報を取り消しました"); renderAdmin(); });
 }
 
 
