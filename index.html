@@ -62,6 +62,8 @@ textarea{resize:vertical;min-height:80px}
 .metric b{display:block;font-family:var(--display);font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
 .metric span{font-size:.74rem;color:var(--muted)}
 .walk{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.walking b{font-family:var(--display);font-variant-numeric:tabular-nums}
+.walking #walkClock{font-size:1.8rem;margin-right:8px}
 .walk b{font-family:var(--display);font-size:1.8rem;font-variant-numeric:tabular-nums;margin-right:8px}
 .strip{display:flex;gap:3px;overflow-x:auto;padding-bottom:4px}
 .cell{flex:1 0 18px;min-width:18px;height:46px;border:0;border-radius:5px;background:var(--c);cursor:pointer;padding:0}
@@ -580,34 +582,149 @@ async function savePetToProfile(){
 }
 
 /* ================= 散歩の記録 ================= */
+// 散歩中の状態：開始時刻、通った位置、トイレ。端末に保存して、画面を閉じても続きから記録できる
+let walk = ls.get("sanpo-walk2", null);
+if(!walk && walkStart) walk = {start: walkStart, pts: [], toilets: []};
+walkStart = walk ? walk.start : null;
+let geoWatch = null;
+const R_EARTH = 6371000;
+function hav(a,b){ const r=x=>x*Math.PI/180, dLat=r(b[0]-a[0]), dLon=r(b[1]-a[1]); const h=Math.sin(dLat/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dLon/2)**2; return 2*R_EARTH*Math.asin(Math.sqrt(h)); }
+function routeLen(pts){ let d=0; for(let i=1;i<pts.length;i++) d+=hav(pts[i-1],pts[i]); return d; }
+const km = m => (m/1000).toFixed(m<10000?2:1);
+function saveWalk(){ ls.set("sanpo-walk2", walk); }
+function startTracking(){
+  if(!navigator.geolocation || geoWatch!=null) return;
+  geoWatch = navigator.geolocation.watchPosition(p=>{
+    if(!walk) return;
+    const c=p.coords; if(c.accuracy>40) return;
+    const pt=[+c.latitude.toFixed(5), +c.longitude.toFixed(5)];
+    const last=walk.pts[walk.pts.length-1];
+    if(last && hav(last,pt)<8) return;
+    if(walk.pts.length<3000){ walk.pts.push(pt); saveWalk(); }
+    const el=$("#walkDist"); if(el) el.textContent = km(routeLen(walk.pts))+" km";
+  }, ()=>{}, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+}
+function stopTracking(){ if(geoWatch!=null){ navigator.geolocation.clearWatch(geoWatch); geoWatch=null; } }
+if(walk) startTracking();
+function walkCard(){
+  if(walk){
+    const pee=walk.toilets.filter(t=>t.kind==="pee").length, poo=walk.toilets.filter(t=>t.kind==="poo").length;
+    return `<div class="panel walking">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><div><b id="walkClock">0:00</b><span class="note">おさんぽ中${pet.name?"（"+esc(pet.name)+"）":""}</span></div><b id="walkDist" style="font-size:1.3rem">${km(routeLen(walk.pts))} km</b></div>
+      <div class="row2"><button class="btn ghost" id="wPee">おしっこ ${pee||""}</button><button class="btn ghost" id="wPoo">うんち ${poo||""}</button></div>
+      <div class="row2"><button class="btn" id="walkEnd">おわった</button><button class="btn ghost" id="walkCancel" style="flex:0 0 auto">取り消す</button></div>
+      <p class="note">画面を消すと位置の記録が止まることがあります。歩いた道は自分にしか見えません。</p></div>`;
+  }
+  return `<div class="row2"><button class="btn" id="walkBtn">おさんぽスタート</button><button class="btn ghost" id="shareBtn" style="flex:0 0 auto">シェア</button></div>`;
+}
 function bindWalk(){
-  const b=$("#walkBtn"); if(b) b.onclick=()=>{ walkStart=Date.now(); ls.set("sanpo-walk",walkStart); $("#walkArea").innerHTML=walkCard(); bindWalk(); tick(); };
+  const re=()=>{ $("#walkArea").innerHTML=walkCard(); bindWalk(); tick(); };
+  const b=$("#walkBtn"); if(b) b.onclick=()=>{ walk={start:Date.now(), pts:[], toilets:[], petLid:pet.lid}; walkStart=walk.start; saveWalk(); ls.set("sanpo-walk",walkStart); startTracking(); re(); };
   const s=$("#shareBtn"); if(s) s.onclick=shareVerdict;
-  const c=$("#walkCancel"); if(c) c.onclick=()=>{ walkStart=null; ls.del("sanpo-walk"); $("#walkArea").innerHTML=walkCard(); bindWalk(); };
+  const c=$("#walkCancel"); if(c) c.onclick=()=>{ walk=null; walkStart=null; ls.del("sanpo-walk2"); ls.del("sanpo-walk"); stopTracking(); re(); };
   const e=$("#walkEnd"); if(e) e.onclick=finishWalk;
+  const pe=$("#wPee"); if(pe) pe.onclick=()=>{ walk.toilets.push({kind:"pee",at:new Date().toISOString()}); saveWalk(); re(); toast("おしっこを記録しました"); };
+  const po=$("#wPoo"); if(po) po.onclick=()=>{ walk.toilets.push({kind:"poo",at:new Date().toISOString()}); saveWalk(); re(); toast("うんちを記録しました"); };
 }
 function tick(){ const el=$("#walkClock"); if(el&&walkStart){ const s=Math.floor((Date.now()-walkStart)/1000); el.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; } }
 setInterval(tick,1000);
 async function finishWalk(){
-  const minutes = Math.min(600, Math.max(1, Math.round((Date.now()-walkStart)/60000)));
+  const w = walk; if(!w) return;
+  const minutes = Math.min(600, Math.max(1, Math.round((Date.now()-w.start)/60000)));
+  const dist = Math.round(routeLen(w.pts));
   const h = weather ? weather.hours[0] : null;
-  const row = {started_at:new Date(walkStart).toISOString(), minutes, level:h?h.level:null, asph:h?Math.round(h.asph):null};
-  walkStart=null; ls.del("sanpo-walk"); $("#walkArea").innerHTML=walkCard(); bindWalk();
-  if(!me){ toast(`${minutes}分の散歩でした。ログインすると記録が残ります`); return; }
-  const {error} = await sb.from("walks").insert(row);
-  toast(error ? "記録できませんでした" : `${minutes}分の散歩を記録しました`);
+  const wp = pets.find(p=>p.lid===w.petLid) || pet;
+  walk=null; walkStart=null; ls.del("sanpo-walk2"); ls.del("sanpo-walk"); stopTracking();
+  $("#walkArea").innerHTML=walkCard(); bindWalk();
+  const msg = `${minutes}分${dist>=50?"・"+km(dist)+"km":""}のおさんぽでした`;
+  if(!me){ toast(msg+"。ログインすると記録が残ります"); return; }
+  const {data,error} = await sb.from("walks").insert({started_at:new Date(w.start).toISOString(), minutes, level:h?h.level:null, asph:h?Math.round(h.asph):null, pet_id:wp.id||null, distance_m:dist, route:w.pts.length>1?w.pts:null}).select("id").single();
+  if(error) return toast("記録できませんでした");
+  if(w.toilets.length) await sb.from("toilets").insert(w.toilets.map(t=>({kind:t.kind, at:t.at, pet_id:wp.id||null, walk_id:data.id})));
+  toast(msg+"。記録しました");
 }
-async function walkStats(){
-  const since = new Date(Date.now()-60*86400e3).toISOString();
-  const {data} = await sb.from("walks").select("started_at,minutes").order("started_at",{ascending:false}).gte("started_at",since).limit(300);
-  const list = data||[];
-  const day = d => { const x=new Date(d); return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`; };
-  const days = new Set(list.map(w=>day(w.started_at)));
-  let streak=0; const c=new Date(); if(!days.has(day(c))) c.setDate(c.getDate()-1);
-  while(days.has(day(c))){ streak++; c.setDate(c.getDate()-1); }
-  const mStart = new Date(); mStart.setDate(1); mStart.setHours(0,0,0,0);
-  const month = list.filter(w=>new Date(w.started_at)>=mStart);
-  return {list, streak, monthCount:month.length, monthMin:month.reduce((s,w)=>s+w.minutes,0)};
+
+/* ================= 記録（散歩・体重・トイレ） ================= */
+let recTab = "walk", recPet = null;
+const dstr = d => `${d.getMonth()+1}/${d.getDate()}`;
+const dayKey = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+async function renderRecords(){
+  const el=$("#recPanel"); if(!el||!me) return;
+  const saved = pets.filter(p=>p.id);
+  if(!saved.length){ el.innerHTML=`<p class="note">判定の画面の「うちの子」で名前を登録すると、記録が残せるようになります。</p>`; return; }
+  if(!recPet || !saved.find(p=>p.id===recPet)) recPet = (pet.id && saved.find(p=>p.id===pet.id)) ? pet.id : saved[0].id;
+  el.innerHTML = `${saved.length>1?`<div class="chips">${saved.map(p=>`<button class="chip" data-rp="${p.id}" aria-pressed="${p.id===recPet}">${esc(p.name||(p.species==="cat"?"ねこ":"いぬ"))}</button>`).join("")}</div>`:""}
+    <div class="seg" id="recSeg">${[["walk","おさんぽ"],["weight","体重"],["toilet","トイレ"]].map(([k,t])=>`<button data-r="${k}" aria-pressed="${recTab===k}">${t}</button>`).join("")}</div>
+    <div id="recBody"><p class="note">読み込み中…</p></div>`;
+  el.querySelectorAll("[data-rp]").forEach(b=>b.onclick=()=>{ recPet=b.dataset.rp; renderRecords(); });
+  el.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{ recTab=b.dataset.r; renderRecords(); });
+  ({walk:recWalks, weight:recWeight, toilet:recToilet})[recTab]();
+}
+async function recWalks(){
+  const body=$("#recBody");
+  const since=new Date(Date.now()-60*86400e3).toISOString();
+  const {data} = await sb.from("walks").select("id,started_at,minutes,distance_m,route").eq("pet_id",recPet).gte("started_at",since).order("started_at",{ascending:false}).limit(200);
+  const list=data||[];
+  const days=new Set(list.map(w=>dayKey(new Date(w.started_at))));
+  let streak=0; const c=new Date(); if(!days.has(dayKey(c))) c.setDate(c.getDate()-1);
+  while(days.has(dayKey(c))){ streak++; c.setDate(c.getDate()-1); }
+  const m0=new Date(); m0.setDate(1); m0.setHours(0,0,0,0);
+  const month=list.filter(w=>new Date(w.started_at)>=m0);
+  const mDist=month.reduce((s,w)=>s+(w.distance_m||0),0);
+  body.innerHTML = `<div class="stats"><span><b>${month.length}</b>回</span><span><b>${month.reduce((s,w)=>s+w.minutes,0)}</b>分</span><span><b>${km(mDist)}</b>km</span><span><b>${streak}</b>日連続</span></div><p class="note">今月の合計</p>`
+    + (list.length?`<div class="list">${list.slice(0,10).map(w=>{ const d=new Date(w.started_at); return `<div><span>${dstr(d)} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}</span><span>${w.distance_m?km(w.distance_m)+"km・":""}<b>${w.minutes}分</b>${w.route?` <button class="linkbtn" data-route="${w.id}">道を見る</button>`:""}</span></div>`; }).join("")}</div>`
+      : `<p class="note">判定の画面の「おさんぽスタート」から記録できます。</p>`);
+  body.querySelectorAll("[data-route]").forEach(b=>b.onclick=()=>{
+    const w=list.find(x=>x.id===+b.dataset.route);
+    const sh=openSheet(`<div class="sheethead"><h2>${dstr(new Date(w.started_at))} のおさんぽ</h2><button class="x" data-close>×</button></div><div id="routeMap" style="height:340px;border-radius:20px;overflow:hidden"></div><p class="note">${km(w.distance_m||0)} km・${w.minutes}分。この道はあなたにしか見えません。</p>`);
+    setTimeout(()=>{ const m=L.map(sh.querySelector("#routeMap"),{zoomControl:false}); L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:'&copy; OpenStreetMap'}).addTo(m); const line=L.polyline(w.route,{color:"#3F7A4A",weight:5}).addTo(m); m.fitBounds(line.getBounds(),{padding:[20,20]}); },50);
+  });
+}
+async function recWeight(){
+  const body=$("#recBody");
+  const {data} = await sb.from("weights").select("measured_on,kg").eq("pet_id",recPet).order("measured_on",{ascending:true}).limit(365);
+  const list=(data||[]).map(r=>({d:new Date(r.measured_on+"T00:00:00"),kg:+r.kg}));
+  const today=new Date(); const iso=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  let chart="";
+  if(list.length>=2){
+    const pts=list.slice(-30), W=320,H=140,P=28;
+    const ks=pts.map(p=>p.kg), mn=Math.min(...ks), mx=Math.max(...ks), pad=Math.max(.2,(mx-mn)*.2), lo=mn-pad, hi=mx+pad;
+    const t0=+pts[0].d, t1=+pts[pts.length-1].d||t0+1;
+    const X=d=>P+(W-P*1.4)*((+d-t0)/Math.max(1,t1-t0)), Y=k=>10+(H-30)*(1-(k-lo)/(hi-lo));
+    const path=pts.map((p,i)=>`${i?"L":"M"}${X(p.d).toFixed(1)},${Y(p.kg).toFixed(1)}`).join(" ");
+    const last=pts[pts.length-1];
+    chart=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="体重の変化"><line x1="${P}" y1="${Y(mx)}" x2="${W-8}" y2="${Y(mx)}" stroke="var(--line)" stroke-dasharray="3 4"/><line x1="${P}" y1="${Y(mn)}" x2="${W-8}" y2="${Y(mn)}" stroke="var(--line)" stroke-dasharray="3 4"/>
+      <text x="2" y="${Y(mx)+4}" font-size="10" fill="var(--muted)">${mx}</text><text x="2" y="${Y(mn)+4}" font-size="10" fill="var(--muted)">${mn}</text>
+      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      ${pts.map(p=>`<circle cx="${X(p.d)}" cy="${Y(p.kg)}" r="2.5" fill="var(--accent)"/>`).join("")}
+      <circle cx="${X(last.d)}" cy="${Y(last.kg)}" r="5" fill="var(--sun)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="${P}" y="${H-4}" font-size="10" fill="var(--muted)">${dstr(pts[0].d)}</text><text x="${W-8}" y="${H-4}" font-size="10" fill="var(--muted)" text-anchor="end">${dstr(last.d)}</text></svg>`;
+  }
+  body.innerHTML = `<div class="row2"><input type="text" id="kgIn" inputmode="decimal" placeholder="体重（kg）例：8.4"><button class="btn" id="kgBtn" style="flex:0 0 auto">記録する</button></div><p class="note">1日1回まで。同じ日に記録すると上書きされます。</p>`
+    + (list.length?`${chart}<div class="list">${list.slice(-5).reverse().map(r=>`<div><span>${dstr(r.d)}</span><b>${r.kg} kg</b></div>`).join("")}</div>`:`<p class="note">まだ記録がありません。</p>`);
+  $("#kgBtn").onclick=async()=>{
+    const v=parseFloat($("#kgIn").value.replace(/[^0-9.]/g,""));
+    if(!(v>0&&v<150)) return toast("体重を数字で入れてください");
+    const {error}=await sb.from("weights").upsert({pet_id:recPet, measured_on:iso, kg:Math.round(v*100)/100},{onConflict:"pet_id,measured_on"});
+    if(error) return toast("記録できませんでした"); toast("記録しました"); recWeight();
+  };
+}
+async function recToilet(){
+  const body=$("#recBody");
+  const since=new Date(); since.setDate(since.getDate()-6); since.setHours(0,0,0,0);
+  const {data} = await sb.from("toilets").select("id,kind,state,at").eq("pet_id",recPet).gte("at",since.toISOString()).order("at",{ascending:false});
+  const list=data||[];
+  const days=[]; for(let i=0;i<7;i++){ const d=new Date(); d.setDate(d.getDate()-i); days.push(d); }
+  const cnt=(d,k)=>list.filter(t=>t.kind===k&&dayKey(new Date(t.at))===dayKey(d)).length;
+  const ST={normal:"ふつう",soft:"やわらかい",hard:"かたい"};
+  body.innerHTML = `<div class="chips"><button class="chip" data-tk="pee">＋ おしっこ</button><button class="chip" data-tk="poo" data-st="normal">＋ うんち（ふつう）</button><button class="chip" data-tk="poo" data-st="soft">＋ うんち（やわらかい）</button><button class="chip" data-tk="poo" data-st="hard">＋ うんち（かたい）</button></div>
+    <div class="list"><div><b>日付</b><span><b>おしっこ</b>　<b>うんち</b></span></div>${days.map(d=>`<div><span>${dstr(d)}${dayKey(d)===dayKey(new Date())?"（今日）":""}</span><span style="font-variant-numeric:tabular-nums">${cnt(d,"pee")}回　　${cnt(d,"poo")}回</span></div>`).join("")}</div>`
+    + (list.filter(t=>t.state&&t.state!=="normal").length?`<p class="note">この1週間で、ふつうでないうんちが${list.filter(t=>t.state&&t.state!=="normal").length}回ありました。続くときは動物病院に相談しましょう。</p>`:"");
+  body.querySelectorAll("[data-tk]").forEach(b=>b.onclick=async()=>{
+    const {error}=await sb.from("toilets").insert({pet_id:recPet, kind:b.dataset.tk, state:b.dataset.st||null});
+    if(error) return toast("記録できませんでした");
+    toast(b.dataset.tk==="pee"?"おしっこを記録しました":`うんち（${ST[b.dataset.st]}）を記録しました`); recToilet();
+  });
 }
 
 /* ================= シェア画像 ================= */
@@ -1033,7 +1150,7 @@ async function renderMe(){
       <label class="fld">種類（犬種・猫種）<input type="text" id="pBreed" maxlength="40" value="${esc(pr.dog_breed)}" placeholder="例：柴犬、スコティッシュフォールド、ミックス"></label>
       <label class="fld">飼い主のニックネーム<input type="text" id="pNick" maxlength="30" value="${esc(pr.nickname)}"></label>
       <button class="btn" id="saveP">保存する</button></div>
-    <section><h2>散歩の記録</h2><div class="panel" id="walkPanel"><p class="note">読み込み中…</p></div></section>
+    <section><h2>記録</h2><div class="panel" id="recPanel"><p class="note">読み込み中…</p></div></section>
     <div class="row2"><button class="btn ghost" id="myPage">自分の投稿を見る</button><button class="btn ghost" id="logout">ログアウト</button></div>
     ${NATIVE?`<section><h2>朝の通知</h2><div class="panel"><p class="note">毎朝、その日のおすすめの散歩時間をお知らせします。</p><div class="chips" id="notifChips">${[["off","オフ"],["6","6時"],["7","7時"],["8","8時"]].map(([v,t])=>`<button class="chip" data-n="${v}" aria-pressed="${String(ls.get("sanpo-notif","off"))===v}">${t}</button>`).join("")}</div></div></section>`:""}
     <section><h2>公開範囲</h2><div class="panel" id="privPanel"><p class="note">読み込み中…</p></div></section>
@@ -1067,11 +1184,7 @@ async function renderMe(){
   $("#myPage").onclick = ()=>openUser(me.id);
   $("#logout").onclick = async()=>{ await sb.auth.signOut(); };
   $("#delAcc").onclick = confirmDelete;
-  walkStats().then(s=>{
-    const wp=$("#walkPanel"); if(!wp) return;
-    wp.innerHTML = `<div class="stats"><span><b>${s.monthCount}</b>回（今月）</span><span><b>${s.monthMin}</b>分（今月）</span><span><b>${s.streak}</b>日連続</span></div>`
-      + (s.list.length ? `<div class="list">${s.list.slice(0,7).map(w=>{ const d=new Date(w.started_at); return `<div><span>${d.getMonth()+1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}</span><b>${w.minutes}分</b></div>`; }).join("")}</div>` : `<p class="note">判定の画面の「散歩をはじめる」から記録できます。</p>`);
-  });
+  renderRecords();
   renderBlocks(); renderPrivacy();
 }
 async function renderBlocks(){
