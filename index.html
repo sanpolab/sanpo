@@ -608,8 +608,8 @@ async function loadMapPosts(){
   if(!READY||!map) return;
   const b = map.getBounds();
   // 投稿から1時間たったものだけを地図に出す（今どこにいるかが分からないように）
-  const {data} = await sb.from("posts").select("id,image_path,lat_grid,lon_grid,area_name,created_at")
-    .not("lat_grid","is",null).lt("created_at",new Date(Date.now()-HOUR).toISOString())
+  const {data} = await sb.from("posts").select("id,image_path,lat_grid,lon_grid,area_name,created_at,profiles!inner(is_private)")
+    .eq("profiles.is_private",false).not("lat_grid","is",null).lt("created_at",new Date(Date.now()-HOUR).toISOString())
     .gte("lat_grid",b.getSouth()-0.05).lte("lat_grid",b.getNorth()+0.05)
     .gte("lon_grid",b.getWest()-0.05).lte("lon_grid",b.getEast()+0.05).order("created_at",{ascending:false}).limit(300);
   postLayer.clearLayers();
@@ -627,7 +627,7 @@ async function openArea(list){
 }
 
 /* ================= 投稿 ================= */
-const POST_COLS = "id,user_id,image_path,caption,area_name,lat_grid,lon_grid,created_at,profiles(nickname,dog_name,dog_breed,avatar_path,pet_type),likes(count),comments(count)";
+const POST_COLS = "id,user_id,image_path,caption,area_name,lat_grid,lon_grid,created_at,profiles(nickname,dog_name,dog_breed,avatar_path,pet_type,is_private),likes(count),comments(count)";
 let likedSet = new Set(), postCache = {};
 async function fetchPosts(filter, limit=30){
   if(!READY) return [];
@@ -647,7 +647,7 @@ const heart = f => `<svg viewBox="0 0 24 24" fill="${f?"currentColor":"none"}" s
 const bubble = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>`;
 function postCard(p){
   const pr=p.profiles||{}, liked=likedSet.has(p.id), fresh = Date.now()-new Date(p.created_at) < 24*HOUR;
-  const who = pr.dog_name ? `${esc(pr.dog_name)}${pr.dog_breed?`<span>（${esc(pr.dog_breed)}）</span>`:""}` : esc(pr.nickname||"飼い主さん");
+  const who = (pr.dog_name ? `${esc(pr.dog_name)}${pr.dog_breed?`<span>（${esc(pr.dog_breed)}）</span>`:""}` : esc(pr.nickname||"飼い主さん")) + (pr.is_private?LOCK:"");
   return `<article class="post" data-id="${p.id}">
     <div class="phead">${avatar(pr.avatar_path, pr.dog_name||pr.nickname)}
       <button class="who" data-act="user" data-uid="${p.user_id}"><b>${who}${fresh?'<span class="new">NEW</span>':""}</b><span>${esc(pr.nickname||"")} ・ ${p.area_name?esc(p.area_name)+"あたり ・ ":""}${ago(p.created_at)}</span></button>
@@ -688,9 +688,10 @@ async function loadFeed(){
     if(!pos){ try{ pos=await getPosition(); }catch(e){} }
     if(!pos){ el.innerHTML=`<div class="empty">位置情報をオンにすると、近くのうちの子が見られます。</div>`; return; }
     posts = await fetchPosts(q=>q.lt("created_at",new Date(Date.now()-HOUR).toISOString()).gte("lat_grid",pos.lat-0.08).lte("lat_grid",pos.lat+0.08).gte("lon_grid",pos.lon-0.1).lte("lon_grid",pos.lon+0.1));
+    posts = posts.filter(p=>!p.profiles?.is_private);
   } else {
     if(!me){ el.innerHTML=`<div class="empty">ログインすると、フォローした子の投稿が見られます。</div>`; return; }
-    const {data:f} = await sb.from("follows").select("followee_id").eq("follower_id",me.id);
+    const {data:f} = await sb.from("follows").select("followee_id").eq("follower_id",me.id).eq("status","accepted");
     const ids=(f||[]).map(x=>x.followee_id);
     if(!ids.length){ el.innerHTML=`<div class="empty">まだ誰もフォローしていません。気になる子のお名前をタップしてフォローしてみましょう。</div>`; return; }
     posts = await fetchPosts(q=>q.in("user_id",ids));
@@ -762,36 +763,71 @@ function confirmBlock(uid, name){
 }
 
 /* ================= ユーザー ================= */
+const LOCK = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-label="鍵アカウント" role="img" style="vertical-align:-2px;margin-left:4px"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
 async function openUser(uid){
   if(!READY) return;
   const sh = openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div><p class="note">読み込み中…</p>`);
   const [{data:pr},{count:fers},{count:fing},{data:ps},isF] = await Promise.all([
     sb.from("profiles").select("*").eq("id",uid).single(),
-    sb.from("follows").select("*",{count:"exact",head:true}).eq("followee_id",uid),
-    sb.from("follows").select("*",{count:"exact",head:true}).eq("follower_id",uid),
+    sb.from("follows").select("*",{count:"exact",head:true}).eq("followee_id",uid).eq("status","accepted"),
+    sb.from("follows").select("*",{count:"exact",head:true}).eq("follower_id",uid).eq("status","accepted"),
     sb.from("posts").select("id,image_path").eq("user_id",uid).order("created_at",{ascending:false}).limit(60),
-    me&&me.id!==uid ? sb.from("follows").select("followee_id").eq("follower_id",me.id).eq("followee_id",uid).maybeSingle() : Promise.resolve({data:null})
+    me&&me.id!==uid ? sb.from("follows").select("status").eq("follower_id",me.id).eq("followee_id",uid).maybeSingle() : Promise.resolve({data:null})
   ]);
   if(!pr){ sh.innerHTML=`<p class="note">見つかりませんでした。</p><button class="btn ghost" data-close>閉じる</button>`; return; }
-  let following = !!isF.data; const self = me && me.id===uid;
+  const self = me && me.id===uid;
+  let state = isF.data ? isF.data.status : "none";   // none / pending / accepted
+  const locked = pr.is_private && !self && state!=="accepted";
+  const label = () => state==="accepted" ? "フォロー中" : state==="pending" ? "リクエスト済み" : (pr.is_private ? "フォローをリクエスト" : "フォローする");
   sh.innerHTML = `<div class="sheethead"><span></span><button class="x" data-close>×</button></div>
-    <div class="prof">${avatar(pr.avatar_path,pr.dog_name||pr.nickname)}<div><h2>${esc(pr.dog_name||pr.nickname)}</h2><p class="note">${petWord(pr.pet_type)}${pr.dog_breed?" ・ "+esc(pr.dog_breed):""} ・ 飼い主：${esc(pr.nickname)}</p>
-      <div class="stats"><span><b>${(ps||[]).length}</b>投稿</span><span><b id="ferN">${fers||0}</b>フォロワー</span><span><b>${fing||0}</b>フォロー</span></div></div></div>
-    ${self?"":`<div class="row2"><button class="btn ${following?"ghost":""}" id="folBtn">${following?"フォロー中":"フォローする"}</button><button class="btn ghost" id="blkBtn" style="flex:0 0 auto">ブロック</button></div>`}
-    <div class="grid3">${(ps||[]).map(p=>`<button data-pid="${p.id}" style="background-image:url('${photo(p.image_path)}')" aria-label="投稿を見る"></button>`).join("")}</div>`;
+    <div class="prof">${avatar(pr.avatar_path,pr.dog_name||pr.nickname)}<div><h2>${esc(pr.dog_name||pr.nickname)}${pr.is_private?LOCK:""}</h2><p class="note">${petWord(pr.pet_type)}${pr.dog_breed?" ・ "+esc(pr.dog_breed):""} ・ 飼い主：${esc(pr.nickname)}</p>
+      <div class="stats">${locked?"":`<span><b>${(ps||[]).length}</b>投稿</span>`}<span><b id="ferN">${fers||0}</b>フォロワー</span><span><b>${fing||0}</b>フォロー</span></div></div></div>
+    ${self?"":`<div class="row2"><button class="btn ${state!=="none"?"ghost":""}" id="folBtn">${label()}</button><button class="btn ghost" id="blkBtn" style="flex:0 0 auto">ブロック</button></div>`}
+    ${locked?`<div class="panel" style="align-items:center;text-align:center">${LOCK.replace('width="15" height="15"','width="34" height="34"')}<p style="margin:0;font-weight:700">鍵アカウントです</p><p class="note">フォローが承認されると、投稿が見られるようになります。</p></div>`
+      :`<div class="grid3">${(ps||[]).map(p=>`<button data-pid="${p.id}" style="background-image:url('${photo(p.image_path)}')" aria-label="投稿を見る"></button>`).join("")}</div>`}`;
   const fb = sh.querySelector("#folBtn");
   if(fb) fb.onclick = async()=>{
     if(!me) return needLogin();
-    const {error} = following ? await sb.from("follows").delete().eq("follower_id",me.id).eq("followee_id",uid) : await sb.from("follows").insert({followee_id:uid});
-    if(error) return toast("うまくいきませんでした");
-    following=!following; fb.textContent=following?"フォロー中":"フォローする"; fb.classList.toggle("ghost",following);
-    const n=sh.querySelector("#ferN"); n.textContent = +n.textContent + (following?1:-1);
+    if(state==="none"){
+      const {data,error} = await sb.from("follows").insert({followee_id:uid}).select("status").single();
+      if(error) return toast("うまくいきませんでした");
+      state = data.status;
+      if(state==="pending") toast("フォローリクエストを送りました");
+      else { const n=sh.querySelector("#ferN"); n.textContent=+n.textContent+1; }
+    } else {
+      const {error} = await sb.from("follows").delete().eq("follower_id",me.id).eq("followee_id",uid);
+      if(error) return toast("うまくいきませんでした");
+      if(state==="accepted"){ const n=sh.querySelector("#ferN"); n.textContent=+n.textContent-1; }
+      toast(state==="pending" ? "リクエストを取り消しました" : "フォローを外しました");
+      state="none";
+      if(pr.is_private) return openUser(uid);
+    }
+    fb.textContent=label(); fb.classList.toggle("ghost",state!=="none");
   };
   const bb = sh.querySelector("#blkBtn"); if(bb) bb.onclick = ()=>confirmBlock(uid, pr.nickname);
   sh.querySelectorAll("[data-pid]").forEach(b=>b.onclick=async()=>{
     const posts = await fetchPosts(q=>q.eq("id",+b.dataset.pid));
     if(posts[0]) openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div>${postCard(posts[0])}`);
   });
+}
+
+/* 鍵アカウントの設定とフォローリクエスト */
+async function renderPrivacy(){
+  const el=$("#privPanel"); if(!el) return;
+  const on = !!me.profile.is_private;
+  const {data:reqs} = await sb.from("follows").select("follower_id,created_at,profiles!follows_follower_id_fkey(nickname,dog_name,avatar_path)").eq("followee_id",me.id).eq("status","pending").order("created_at",{ascending:false});
+  el.innerHTML = `<label class="check"><input type="checkbox" id="privChk" ${on?"checked":""}><span><b>鍵アカウントにする</b><br><small class="note">承認したフォロワーだけが、あなたの投稿を見られます。投稿は地図と「近く」にも出なくなります。</small></span></label>
+    ${(reqs&&reqs.length)?`<h3>フォローリクエスト（${reqs.length}）</h3><div class="list">${reqs.map(r=>`<div><button class="linkbtn" data-uid="${r.follower_id}" style="text-decoration:none;color:var(--ink);font-weight:700">${esc(r.profiles?.dog_name||r.profiles?.nickname||"ユーザー")}</button><span class="row2" style="flex:0 0 auto;gap:6px"><button class="btn" data-ok="${r.follower_id}" style="flex:0 0 auto;min-height:38px;padding:4px 14px">承認</button><button class="btn ghost" data-ng="${r.follower_id}" style="flex:0 0 auto;min-height:38px;padding:4px 12px">削除</button></span></div>`).join("")}</div>`
+      : (on?`<p class="note">フォローリクエストは届いていません。</p>`:"")}`;
+  el.querySelector("#privChk").onchange = async e=>{
+    const v = e.target.checked;
+    const {error} = await sb.from("profiles").update({is_private:v}).eq("id",me.id);
+    if(error){ e.target.checked=!v; return toast("変更できませんでした"); }
+    me.profile.is_private=v; toast(v?"鍵アカウントにしました":"鍵を外しました。届いていたリクエストは承認されました"); renderPrivacy();
+  };
+  el.querySelectorAll("[data-uid]").forEach(b=>b.onclick=()=>openUser(b.dataset.uid));
+  el.querySelectorAll("[data-ok]").forEach(b=>b.onclick=async()=>{ await sb.from("follows").update({status:"accepted"}).eq("followee_id",me.id).eq("follower_id",b.dataset.ok); toast("承認しました"); renderPrivacy(); });
+  el.querySelectorAll("[data-ng]").forEach(b=>b.onclick=async()=>{ await sb.from("follows").delete().eq("followee_id",me.id).eq("follower_id",b.dataset.ng); toast("リクエストを削除しました"); renderPrivacy(); });
 }
 
 /* ================= 投稿する ================= */
@@ -918,6 +954,7 @@ async function renderMe(){
     <section><h2>散歩の記録</h2><div class="panel" id="walkPanel"><p class="note">読み込み中…</p></div></section>
     <div class="row2"><button class="btn ghost" id="myPage">自分の投稿を見る</button><button class="btn ghost" id="logout">ログアウト</button></div>
     ${NATIVE?`<section><h2>朝の通知</h2><div class="panel"><p class="note">毎朝、その日のおすすめの散歩時間をお知らせします。</p><div class="chips" id="notifChips">${[["off","オフ"],["6","6時"],["7","7時"],["8","8時"]].map(([v,t])=>`<button class="chip" data-n="${v}" aria-pressed="${String(ls.get("sanpo-notif","off"))===v}">${t}</button>`).join("")}</div></div></section>`:""}
+    <section><h2>公開範囲</h2><div class="panel" id="privPanel"><p class="note">読み込み中…</p></div></section>
     <section><h2>ブロック中の人</h2><div class="panel" id="blockPanel"><p class="note">読み込み中…</p></div></section>
     <section><h2>アカウント</h2><div class="panel"><p class="note">ログイン中：${esc(me.email||"")}</p><button class="btn ghost" id="delAcc" style="color:var(--danger);border-color:var(--danger)">アカウントを削除する</button></div></section>
     ${CONFIG.contact.includes("_HERE")?"":`<p class="note">お問い合わせ：${esc(CONFIG.contact)}</p>`}`;
@@ -953,7 +990,7 @@ async function renderMe(){
     wp.innerHTML = `<div class="stats"><span><b>${s.monthCount}</b>回（今月）</span><span><b>${s.monthMin}</b>分（今月）</span><span><b>${s.streak}</b>日連続</span></div>`
       + (s.list.length ? `<div class="list">${s.list.slice(0,7).map(w=>{ const d=new Date(w.started_at); return `<div><span>${d.getMonth()+1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}</span><b>${w.minutes}分</b></div>`; }).join("")}</div>` : `<p class="note">判定の画面の「散歩をはじめる」から記録できます。</p>`);
   });
-  renderBlocks();
+  renderBlocks(); renderPrivacy();
 }
 async function renderBlocks(){
   const bp=$("#blockPanel"); if(!bp) return;
