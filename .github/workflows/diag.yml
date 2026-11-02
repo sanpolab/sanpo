@@ -1,0 +1,30 @@
+# 調べもの用（手動で動かす）：プッシュ通知がどこで止まっているかを見る
+# 個人の情報や鍵は表示しない（件数・状態だけ）
+name: Diagnose push
+
+on: workflow_dispatch
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT: odwucmmcxbdyhncxdwvg
+    steps:
+      - name: データベースを調べる
+        run: |
+          q () {
+            echo "== $1"
+            curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+              -d "$(jq -n --arg q "$2" '{query:$q}')"
+            echo
+          }
+          q "push_tokens" "select count(*) as tokens, count(distinct user_id) as users, max(updated_at) as last from public.push_tokens"
+          q "trigger" "select tgname from pg_trigger where tgname='notifications_push'"
+          q "pg_net" "select extname from pg_extension where extname='pg_net'"
+          q "recent notifications" "select id, kind, created_at, pushed_at from public.notifications order by id desc limit 6"
+          q "pg_net responses" "select id, status_code, left(coalesce(content::text,''),200) as content, error_msg, created from net._http_response order by id desc limit 6"
+      - name: 送信プログラムを直接呼んでみる（存在しない番号）
+        run: |
+          curl -sS -i -X POST "https://$PROJECT.supabase.co/functions/v1/push" -H "Content-Type: application/json" -d '{"id":-1}' | head -20
