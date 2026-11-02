@@ -17,6 +17,7 @@ def call(method, path, body=None, ok=(200, 201, 204), quiet=False):
     r = S.request(method, API + path, json=body, headers={"Authorization": "Bearer " + token()})
     if r.status_code not in ok:
         msg = f"{method} {path.split('?')[0]} -> {r.status_code}: " + "; ".join(e.get("detail") or e.get("title", "") for e in r.json().get("errors", [])) if r.content else ""
+        msg = msg[:600]
         if not quiet: print("  ! " + msg); problems.append(msg)
         return None
     return r.json() if r.content else {}
@@ -155,11 +156,12 @@ step("配信する国（日本）")
 av = call("GET", f"/v1/apps/{APP}/appAvailabilityV2", ok=(200,), quiet=True)
 if av and av.get("data"): print("  already set")
 else:
+    terrs = [t["id"] for t in call("GET", "/v1/territories?limit=200")["data"]]
     r = call("POST", "/v2/appAvailabilities", {"data": {"type": "appAvailabilities", "attributes": {"availableInNewTerritories": False},
         "relationships": {"app": {"data": {"type": "apps", "id": APP}},
-                          "territoryAvailabilities": {"data": [{"type": "territoryAvailabilities", "id": "${jpn}"}]}}},
-        "included": [{"type": "territoryAvailabilities", "id": "${jpn}", "attributes": {"available": True},
-                      "relationships": {"territory": {"data": {"type": "territories", "id": "JPN"}}}}]})
+                          "territoryAvailabilities": {"data": [{"type": "territoryAvailabilities", "id": "${t%s}" % t} for t in terrs]}}},
+        "included": [{"type": "territoryAvailabilities", "id": "${t%s}" % t, "attributes": {"available": t == "JPN"},
+                      "relationships": {"territory": {"data": {"type": "territories", "id": t}}}} for t in terrs]})
     if r: print("  Japan")
 
 print("\n== 結果")
