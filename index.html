@@ -891,6 +891,8 @@ function paintMapHint(){
     $("#pickOk").onclick=()=>{ const c=map.getCenter(); endPick(); openSpotForm(null,{lat:c.lat,lon:c.lng}); };
     $("#pickNo").onclick=endPick; return; }
   const sv = layers.spots || layers.vet;
+  if(sv && map.getZoom()>=13 && spotStatus==="loading") h+=`<small>${layers.spots?"お店":"病院"}の情報を読み込んでいます…</small>`;
+  if(sv && map.getZoom()>=13 && spotStatus==="fail") h+=`<small>地図の情報サービスが混んでいます。少し待ってから地図を動かしてください</small>`;
   if(sv && map.getZoom()<13) h+=`<small>${layers.spots?"ドッグラン・カフェ":"動物病院"}は、もう少し地図を大きくすると出ます</small>`;
   if(sv && map.getZoom()>=13) h+=`<button class="pill" id="spotNew">＋ ${layers.spots?"ドッグラン・カフェ":"動物病院"}を追加</button>`;
   if(layers.lost) h+=`<button class="pill" id="lostNew" style="background:#C8553D;color:#fff">＋ 迷子・保護を知らせる</button>`;
@@ -903,7 +905,25 @@ function paintMapHint(){
 const ICON_PARK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/></svg>`;
 const ICON_CAFE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3v3M12 3v3"/></svg>`;
 const ICON_VET = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 4h5v5.5H20v5h-5.5V20h-5v-5.5H4v-5h5.5z"/></svg>`;
-const spotCache = {}; let spotReq = 0;
+const spotCache = {}; let spotReq = 0, spotStatus = "";
+// 無料の地図データサービスは混むことがあるので、予備のサーバーも順に試す
+const OVERPASS = ["https://overpass-api.de/api/interpreter","https://overpass.osm.jp/api/interpreter","https://overpass.kumi.systems/api/interpreter","https://overpass.private.coffee/api/interpreter"];
+let opFirst = 0;
+async function overpass(q){
+  for(let k=0;k<OVERPASS.length;k++){
+    const i=(opFirst+k)%OVERPASS.length;
+    try{
+      const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),12000);
+      const res=await fetch(OVERPASS[i],{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"},signal:ctl.signal});
+      clearTimeout(t);
+      if(!res.ok) continue;
+      const j=await res.json();
+      if(!j||!Array.isArray(j.elements)) continue;
+      opFirst=i; return j;
+    }catch(e){}
+  }
+  throw new Error("overpass unavailable");
+}
 const starStr = n => "★".repeat(Math.round(n)) + "☆".repeat(5-Math.round(n));
 async function loadSpots(){
   if(!map) return;
@@ -916,8 +936,8 @@ async function loadSpots(){
   if(!spots){
     const q=`[out:json][timeout:20];(nwr["leisure"="dog_park"](${key});nwr["amenity"~"^(cafe|restaurant)$"]["dog"~"^(yes|leashed|outside)$"](${key});nwr["amenity"="veterinary"](${key}););out center 300;`;
     try{
-      const res=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
-      const j=await res.json();
+      spotStatus="loading"; paintMapHint();
+      const j=await overpass(q);
       spots=(j.elements||[]).map(x=>({
         id:`${x.type}/${x.id}`, lat:x.lat??x.center?.lat, lon:x.lon??x.center?.lon,
         type:x.tags?.leisure==="dog_park"?"dogpark":x.tags?.amenity==="veterinary"?"vet":"cafe",
@@ -927,7 +947,9 @@ async function loadSpots(){
         emergency:x.tags?.emergency==="yes"
       })).filter(x=>x.lat!=null);
       spotCache[key]=spots;
-    }catch(err){ spots=null; }
+      spotStatus="";
+    }catch(err){ spots=null; spotStatus="fail"; }
+    paintMapHint();
   }
   if(my!==spotReq || !(layers.spots||layers.vet)) return;
   let us=[];
@@ -936,7 +958,6 @@ async function loadSpots(){
     us=(data||[]).map(x=>({id:"u/"+x.id, uid:x.id, user:true, by:x.user_id, lat:+x.lat, lon:+x.lon, type:x.spot_type, name:x.name, note:x.note, dog:"", hours:""}));
   }
   if(my!==spotReq) return;
-  if(!spots && !us.length){ toast("お店の情報を読み込めませんでした"); }
   spots=[...(spots||[]), ...us].filter(x=> x.type==="vet" ? layers.vet : layers.spots);
   const stats={};
   if(READY && spots.length){
