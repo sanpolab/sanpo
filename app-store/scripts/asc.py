@@ -151,6 +151,17 @@ else:
                           "relationships": {"appPricePoint": {"data": {"type": "appPricePoints", "id": free["id"]}}}}]})
         print("  free")
 
+step("配信する国（日本）")
+av = call("GET", f"/v1/apps/{APP}/appAvailabilityV2", ok=(200,), quiet=True)
+if av and av.get("data"): print("  already set")
+else:
+    r = call("POST", "/v2/appAvailabilities", {"data": {"type": "appAvailabilities", "attributes": {"availableInNewTerritories": False},
+        "relationships": {"app": {"data": {"type": "apps", "id": APP}},
+                          "territoryAvailabilities": {"data": [{"type": "territoryAvailabilities", "id": "${jpn}"}]}}},
+        "included": [{"type": "territoryAvailabilities", "id": "${jpn}", "attributes": {"available": True},
+                      "relationships": {"territory": {"data": {"type": "territories", "id": "JPN"}}}}]})
+    if r: print("  Japan")
+
 print("\n== 結果")
 if problems:
     print("うまくいかなかった項目:"); [print(" - " + p) for p in problems]
