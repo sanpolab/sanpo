@@ -1,0 +1,40 @@
+# App Store Connect にストアの情報を入力する（手動で動かす）
+# 審査用アカウントのパスワードは毎回新しく作り直し、Supabase と Apple の両方に同じものを設定する（画面には出さない）
+name: App Store info
+
+on: workflow_dispatch
+
+jobs:
+  asc:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT: odwucmmcxbdyhncxdwvg
+      URL: https://odwucmmcxbdyhncxdwvg.supabase.co
+      REVIEW_EMAIL: nakanakadoukana+review@gmail.com
+    steps:
+      - uses: actions/checkout@v4
+      - name: 審査用アカウントのパスワードを作り直す
+        run: |
+          set -e
+          PASS="Nk$(openssl rand -hex 8)!"; echo "::add-mask::$PASS"
+          KEY=$(curl -sS "https://api.supabase.com/v1/projects/$PROJECT/api-keys?reveal=true" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            | jq -r '[.[] | select(.name=="service_role" or .type=="secret") | .api_key][0] // empty')
+          echo "::add-mask::$KEY"
+          RID=$(curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT/database/query" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" -d "{\"query\":\"select id from auth.users where email='$REVIEW_EMAIL'\"}" | jq -r '.[0].id // empty')
+          [ -n "$RID" ] || { echo "審査用アカウントが見つかりません"; exit 1; }
+          if [[ "$KEY" == sb_secret_* ]]; then AUTH=(-H "apikey: $KEY"); else AUTH=(-H "apikey: $KEY" -H "Authorization: Bearer $KEY"); fi
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -X PUT "$URL/auth/v1/admin/users/$RID" "${AUTH[@]}" -H "Content-Type: application/json" \
+            -d "$(jq -n --arg p "$PASS" '{password:$p, email_confirm:true}')")
+          echo "password reset -> $code"; [ "$code" = "200" ]
+          echo "REVIEW_PASSWORD=$PASS" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q pyjwt cryptography requests
+      - name: ストアの情報を入力
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: python app-store/scripts/asc.py
