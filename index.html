@@ -334,7 +334,9 @@ const READY = !!window.supabase;
 const sb = READY ? supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey) : null;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const photo = p => p ? `${CONFIG.supabaseUrl}/storage/v1/object/public/photos/${p}` : "";
+// 写真の場所は「フォルダ/ファイル名」の形だけ通す（変な文字で画面を乗っ取られないように）
+const PHOTO_RE = /^[0-9a-f-]{36}\/[A-Za-z0-9._-]{1,80}$/;
+const photo = p => (p && PHOTO_RE.test(p)) ? `${CONFIG.supabaseUrl}/storage/v1/object/public/photos/${p}` : "";
 const ls = { get(k,d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
              set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
              del(k){ try{ localStorage.removeItem(k); }catch(e){} } };
