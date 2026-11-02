@@ -123,6 +123,27 @@ jobs:
           codesign --force --sign - --entitlements ios/App/App/App.entitlements --generate-entitlement-der "$APP"
           codesign -d --entitlements :- "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" 2>/dev/null | grep -A1 aps-environment
 
+      - name: 署名済みアプリの中身を確認（通知の許可が入っているか）
+        if: env.HAS_KEYS == 'true'
+        run: |
+          cat > "$RUNNER_TEMP/ExportLocal.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>teamID</key><string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportLocal.plist" -exportPath "$RUNNER_TEMP/local" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
+            -authenticationKeyID "${{ secrets.ASC_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.ASC_ISSUER_ID }}" | tail -5 || true
+          cd "$RUNNER_TEMP/local" && unzip -q -o *.ipa && codesign -d --entitlements :- Payload/App.app 2>/dev/null || true
+
       - name: App Store Connect に送る
         if: env.HAS_KEYS == 'true'
         run: |

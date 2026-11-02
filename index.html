@@ -1476,7 +1476,8 @@ async function loadMe(session){
 
 /* ================= プッシュ通知（iPhoneアプリだけ） ================= */
 const PUSH = NATIVE && window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin("PushNotifications") : null;
-let pushReady = false;
+let pushReady = false, pushState = "";
+function paintPushState(){ const el=$("#pushState"); if(el) el.textContent=pushState; }
 async function setupPush(force){
   if(!PUSH || !me) return;
   if(ls.get("sanpo-push","on")==="off" && !force) return;
@@ -1484,9 +1485,15 @@ async function setupPush(force){
     if(!pushReady){
       pushReady = true;
       await PUSH.addListener("registration", async t=>{
-        if(!me || !t || !t.value) return;
+        if(!me || !t || !t.value){ pushState="通知先の番号を受け取れませんでした"; return; }
         ls.set("sanpo-push-token", t.value);
-        await sb.from("push_tokens").upsert({token:t.value, user_id:me.id, platform:"ios", updated_at:new Date().toISOString()});
+        const {error} = await sb.from("push_tokens").upsert({token:t.value, user_id:me.id, platform:"ios", updated_at:new Date().toISOString()});
+        pushState = error ? "通知先を保存できませんでした（"+(error.message||error.code)+"）" : "このiPhoneに通知が届きます";
+        paintPushState();
+      });
+      await PUSH.addListener("registrationError", e=>{
+        pushState = "iPhoneが通知の登録を断りました（"+(e?.error||JSON.stringify(e))+"）";
+        paintPushState();
       });
       await PUSH.addListener("pushNotificationActionPerformed", a=>{
         const k = a?.notification?.data?.kind;
@@ -1495,10 +1502,11 @@ async function setupPush(force){
     }
     let st = await PUSH.checkPermissions();
     if(st.receive==="prompt" || st.receive==="prompt-with-rationale") st = await PUSH.requestPermissions();
-    if(st.receive!=="granted"){ if(force) toast("通知が許可されていません。iPhoneの設定アプリから許可してください"); return false; }
+    if(st.receive!=="granted"){ pushState="通知が許可されていません（iPhoneの設定アプリ → にくきゅうレーダー → 通知）"; paintPushState(); if(force) toast("通知が許可されていません。iPhoneの設定アプリから許可してください"); return false; }
+    pushState="通知の準備をしています…"; paintPushState();
     await PUSH.register();
     return true;
-  }catch(e){ console.error(e); return false; }
+  }catch(e){ console.error(e); pushState="通知の準備でエラー（"+(e?.message||e)+"）"; paintPushState(); return false; }
 }
 async function stopPush(){
   const t = ls.get("sanpo-push-token", null);
@@ -1554,7 +1562,7 @@ async function renderMe(){
       <button class="btn" id="saveP">保存する</button></div>
     <section><h2>記録</h2><div class="panel" id="recPanel"><p class="note">読み込み中…</p></div></section>
     <div class="row2"><button class="btn ghost" id="myPage">自分の投稿を見る</button><button class="btn ghost" id="logout">ログアウト</button></div>
-    ${NATIVE?`<section><h2>お知らせの通知</h2><div class="panel"><p class="note">いいね・コメント・フォロー・メッセージが届いたときに、iPhoneに通知します。メッセージの本文は通知に出ません。</p><div class="chips" id="pushChips">${[["on","オン"],["off","オフ"]].map(([v,t])=>`<button class="chip" data-p="${v}" aria-pressed="${ls.get("sanpo-push","on")===v}">${t}</button>`).join("")}</div></div></section>`:""}
+    ${NATIVE?`<section><h2>お知らせの通知</h2><div class="panel"><p class="note">いいね・コメント・フォロー・メッセージが届いたときに、iPhoneに通知します。メッセージの本文は通知に出ません。</p><div class="chips" id="pushChips">${[["on","オン"],["off","オフ"]].map(([v,t])=>`<button class="chip" data-p="${v}" aria-pressed="${ls.get("sanpo-push","on")===v}">${t}</button>`).join("")}</div><p class="note" id="pushState" style="margin:0">${esc(pushState)}</p></div></section>`:""}
     ${NATIVE?`<section><h2>朝の通知</h2><div class="panel"><p class="note">毎朝、その日のおすすめの散歩時間をお知らせします。</p><div class="chips" id="notifChips">${[["off","オフ"],["6","6時"],["7","7時"],["8","8時"]].map(([v,t])=>`<button class="chip" data-n="${v}" aria-pressed="${String(ls.get("sanpo-notif","off"))===v}">${t}</button>`).join("")}</div></div></section>`:""}
     ${me.admin?`<section><h2>通報の確認（管理者）</h2><div class="panel" id="adminPanel"><p class="note">読み込み中…</p></div></section>`:""}
     <section><h2>公開範囲</h2><div class="panel" id="privPanel"><p class="note">読み込み中…</p></div></section>
