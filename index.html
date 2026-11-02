@@ -129,6 +129,13 @@ input[type=datetime-local]{width:100%;font:inherit;font-size:16px;padding:10px 1
 .crosshair div{width:44px;height:44px;margin-top:-44px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:var(--accent);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.4)}
 .pickbar{background:var(--card);border-radius:var(--wob1);padding:12px;box-shadow:0 2px 12px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:8px;text-align:center;width:min(340px,calc(100vw - 32px))}
 .spin.user{outline:2.5px dashed rgba(255,255,255,.9);outline-offset:1px}
+.intro{display:flex;flex-direction:column;gap:14px;text-align:center;padding-top:6px}
+.intro .art{height:210px;border-radius:var(--wob1);display:flex;align-items:flex-end;justify-content:center;gap:8px;padding:12px;position:relative;overflow:hidden}
+.intro .art img{height:150px;width:auto}
+.intro .art .big{position:absolute;top:16px;left:0;right:0;font-family:var(--display);font-size:1.15rem;font-weight:700;color:var(--ink)}
+.intro h2{font-size:1.35rem}
+.intro p{margin:0;color:var(--muted);line-height:1.8}
+.dots{display:flex;justify-content:center;gap:8px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--line)}.dots i.on{background:var(--accent)}
 .me-dot{width:18px;height:18px;border-radius:50%;background:#2B7BE4;border:3px solid #fff;box-shadow:0 0 0 6px rgba(43,123,228,.25)}
 
 .seg{display:flex;background:var(--card);border-radius:12px;padding:4px;gap:4px}
@@ -1927,8 +1934,36 @@ function go(tab){
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.tab));
 
+/* ================= はじめての人への説明 ================= */
+const INTRO = [
+  {bg:"#DCEBF2", big:"今日、散歩していい？", img:["img/dog-sunny.png","img/cat-sunny.png"], h:"散歩していいか、ひと目でわかる",
+   p:"天気と地面の温度から、うちの子にとって安心な時間を判定します。夏のアスファルト、冬の凍結、雨や雷もチェックします。"},
+  {bg:"#F6E7B4", big:"肉球にやさしい時間", img:["img/dog-hot.png","img/cat-hot.png"], h:"体に合わせて判定します",
+   p:"犬も猫も、何匹でも登録できます。体の大きさや年齢、毛の色、持病に合わせて判定し、散歩の道のりや体重も記録できます。"},
+  {bg:"#F7DCE2", big:"みんなのうちの子", img:["img/dog-cloudy.png","img/cat-snow.png"], h:"近くの飼い主さんとつながる",
+   p:"うちの子の写真を投稿したり、ドッグランや動物病院を地図で探したりできます。場所はだいたいのエリアしか出ないので安心です。"}
+];
+function showIntro(){
+  let i = 0;
+  const sh = openSheet(`<div class="intro" id="intro"></div>`);
+  ls.set("sanpo-intro", 1); // 一度見せたら、次からは出さない
+  const paint = ()=>{
+    const s = INTRO[i];
+    sh.querySelector("#intro").innerHTML = `<div class="art" style="background:${s.bg}"><span class="big">${s.big}</span>${s.img.map(x=>`<img src="${x}" alt="">`).join("")}</div>
+      <h2>${s.h}</h2><p>${s.p}</p>
+      <div class="dots">${INTRO.map((_,k)=>`<i class="${k===i?"on":""}"></i>`).join("")}</div>
+      <button class="btn wide" id="inNext">${i<INTRO.length-1?"つぎへ":"はじめる"}</button>
+      ${i<INTRO.length-1?`<button class="linkbtn" id="inSkip">スキップ</button>`:""}`;
+    sh.querySelector("#inNext").onclick = ()=>{ if(i<INTRO.length-1){ i++; paint(); } else done(); };
+    const sk = sh.querySelector("#inSkip"); if(sk) sk.onclick = done;
+  };
+  const done = ()=>{ ls.set("sanpo-intro", 1); closeSheet(); };
+  paint();
+}
+
 /* ================= 起動 ================= */
 renderHome(); renderMe();
+if(!ls.get("sanpo-intro", 0) && !location.hash) setTimeout(showIntro, 300);
 if(ls.get("sanpo-geo-ok",false)) locate(false);
 // ストアに載せるページ用：#privacy #terms #support で直接開ける
 function openFromHash(){
