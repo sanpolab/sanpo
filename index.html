@@ -1471,6 +1471,40 @@ async function loadMe(session){
   try{ const {data:ad} = await sb.rpc("is_admin"); me.admin = ad===true; }catch(e){ me.admin=false; }
   await loadPets();
   computeWeather(); renderPetChips(); renderMe(); refreshUnread();
+  setupPush();
+}
+
+/* ================= プッシュ通知（iPhoneアプリだけ） ================= */
+const PUSH = NATIVE && window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin("PushNotifications") : null;
+let pushReady = false;
+async function setupPush(force){
+  if(!PUSH || !me) return;
+  if(ls.get("sanpo-push","on")==="off" && !force) return;
+  try{
+    if(!pushReady){
+      pushReady = true;
+      await PUSH.addListener("registration", async t=>{
+        if(!me || !t || !t.value) return;
+        ls.set("sanpo-push-token", t.value);
+        await sb.from("push_tokens").upsert({token:t.value, user_id:me.id, platform:"ios", updated_at:new Date().toISOString()});
+      });
+      await PUSH.addListener("pushNotificationActionPerformed", a=>{
+        const k = a?.notification?.data?.kind;
+        go("feed"); if(k==="message") openChats(); else openNotes();
+      });
+    }
+    let st = await PUSH.checkPermissions();
+    if(st.receive==="prompt" || st.receive==="prompt-with-rationale") st = await PUSH.requestPermissions();
+    if(st.receive!=="granted"){ if(force) toast("通知が許可されていません。iPhoneの設定アプリから許可してください"); return false; }
+    await PUSH.register();
+    return true;
+  }catch(e){ console.error(e); return false; }
+}
+async function stopPush(){
+  const t = ls.get("sanpo-push-token", null);
+  if(t && me) await sb.from("push_tokens").delete().eq("token", t);
+  ls.set("sanpo-push-token", null);
+  try{ if(PUSH) await PUSH.unregister(); }catch(e){}
 }
 async function renderMe(){
   const el=$("#meBody");
@@ -1520,6 +1554,7 @@ async function renderMe(){
       <button class="btn" id="saveP">保存する</button></div>
     <section><h2>記録</h2><div class="panel" id="recPanel"><p class="note">読み込み中…</p></div></section>
     <div class="row2"><button class="btn ghost" id="myPage">自分の投稿を見る</button><button class="btn ghost" id="logout">ログアウト</button></div>
+    ${NATIVE?`<section><h2>お知らせの通知</h2><div class="panel"><p class="note">いいね・コメント・フォロー・メッセージが届いたときに、iPhoneに通知します。メッセージの本文は通知に出ません。</p><div class="chips" id="pushChips">${[["on","オン"],["off","オフ"]].map(([v,t])=>`<button class="chip" data-p="${v}" aria-pressed="${ls.get("sanpo-push","on")===v}">${t}</button>`).join("")}</div></div></section>`:""}
     ${NATIVE?`<section><h2>朝の通知</h2><div class="panel"><p class="note">毎朝、その日のおすすめの散歩時間をお知らせします。</p><div class="chips" id="notifChips">${[["off","オフ"],["6","6時"],["7","7時"],["8","8時"]].map(([v,t])=>`<button class="chip" data-n="${v}" aria-pressed="${String(ls.get("sanpo-notif","off"))===v}">${t}</button>`).join("")}</div></div></section>`:""}
     ${me.admin?`<section><h2>通報の確認（管理者）</h2><div class="panel" id="adminPanel"><p class="note">読み込み中…</p></div></section>`:""}
     <section><h2>公開範囲</h2><div class="panel" id="privPanel"><p class="note">読み込み中…</p></div></section>
@@ -1553,7 +1588,14 @@ async function renderMe(){
     toast(v==="off" ? "通知をオフにしました" : `毎朝${v}時にお知らせします`);
   });
   $("#myPage").onclick = ()=>openUser(me.id);
-  $("#logout").onclick = async()=>{ await sb.auth.signOut(); };
+  $("#logout").onclick = async()=>{ await stopPush(); await sb.auth.signOut(); };
+  document.querySelectorAll("#pushChips .chip").forEach(c=>c.onclick=async()=>{
+    const v=c.dataset.p;
+    if(v==="on"){ const ok=await setupPush(true); if(!ok) return; } else await stopPush();
+    ls.set("sanpo-push", v);
+    document.querySelectorAll("#pushChips .chip").forEach(x=>x.setAttribute("aria-pressed", x===c));
+    toast(v==="on" ? "通知をオンにしました" : "通知をオフにしました");
+  });
   $("#delAcc").onclick = confirmDelete;
   renderRecords(); if(me.admin) renderAdmin();
   renderBlocks(); renderPrivacy();
@@ -1596,10 +1638,10 @@ function openLegal(kind){
     <h3>6. お問い合わせ</h3><p>${c}</p><p class="note">${CONFIG.updated} 制定</p></div>`;
   const privacy = `<h2>プライバシーポリシー</h2><div class="legal">
     <p>${CONFIG.operator}は、「にくきゅうレーダー」で扱う情報を次のとおり取り扱います。</p>
-    <h3>1. 預かる情報</h3><ul><li>メールアドレス（ログインのため）</li><li>プロフィール（ニックネーム、うちの子の名前・種類・体の大きさ・年齢、アイコン写真）</li><li>投稿した写真、ひとこと、だいたいのエリア（約1km、または近くの投稿が少ない場合は約5km単位の地域名）</li><li>いいね、コメント、フォロー、ブロック、通報</li><li>散歩の記録（日時と時間）</li></ul>
-    <h3>2. 位置情報</h3><p>判定のための現在地は保存しません。現在地は端末の中で天気の取得とエリアの判定にだけ使います。「おさんぽスタート」で記録を始めたときだけ、歩いた道のりを記録してあなたのアカウントに保存します。道のりはあなたにしか見えません。iPhoneアプリでは、記録中は画面を閉じても道のりの記録を続け、記録を終えると位置の取得も止まります。迷子・保護の投稿の場所は約100m単位、散歩仲間の地域は約5km単位で保存し、他の利用者に表示します。そのため、約100m単位の位置を天気サービス（Open-Meteo）に、約1km単位の位置を地図サービス（OpenStreetMap Nominatim）に送ります。投稿の写真は、撮影場所などの情報を消してから送ります。</p>
-    <h3>3. 公開される情報</h3><p>プロフィール、投稿、エリアの地域名、コメント、いいねの数は、ほかの利用者に公開されます。散歩の記録とブロックの一覧は本人にしか見えません。</p>
-    <h3>4. 保存場所と第三者への提供</h3><p>情報はSupabase（東京リージョン）のサーバーに保存します。法令に基づく場合を除き、本人の同意なく第三者に提供しません。</p>
+    <h3>1. 預かる情報</h3><ul><li>メールアドレス（ログインのため）</li><li>プロフィール（ニックネーム、うちの子の名前・種類・体の大きさ・年齢、アイコン写真）</li><li>投稿した写真、ひとこと、だいたいのエリア（約1km、または近くの投稿が少ない場合は約5km単位の地域名）</li><li>いいね、コメント、フォロー、ブロック、通報</li><li>メッセージ（やりとりした本人どうしだけが読めます）</li><li>散歩の記録（日時、時間、距離、歩いた道のり）、体重、トイレの記録</li><li>散歩仲間の登録（時間帯、ひとこと、約5km単位の地域名）</li><li>ドッグラン・カフェ・動物病院の口コミと、追加した場所</li><li>迷子・保護の投稿（写真、特徴、約100m単位の場所）</li><li>iPhoneアプリで通知をオンにした場合、通知を届けるための端末の番号</li></ul>
+    <h3>2. 位置情報</h3><p>判定のための現在地は保存しません。現在地は端末の中で天気の取得とエリアの判定にだけ使います。「おさんぽスタート」で記録を始めたときだけ、歩いた道のりを記録してあなたのアカウントに保存します。道のりはあなたにしか見えません。iPhoneアプリでは、記録中は画面を閉じても道のりの記録を続け、記録を終えると位置の取得も止まります。迷子・保護の投稿の場所は約100m単位、散歩仲間の地域は約5km単位で保存し、他の利用者に表示します。天気と地域名を調べるため、約100m単位の位置を天気サービス（Open-Meteo）に、約1km単位の位置を地図サービス（OpenStreetMap Nominatim）に送ります。投稿の写真は、撮影場所などの情報を消してから送ります。</p>
+    <h3>3. 公開される情報</h3><p>プロフィール、投稿、エリアの地域名、コメント、いいねの数、口コミ、迷子・保護の投稿、散歩仲間の登録は、ほかの利用者に公開されます（鍵アカウントの投稿は、承認したフォロワーだけに見えます）。散歩の記録、体重、トイレ、ブロックの一覧は本人にしか見えません。</p>
+    <h3>4. 保存場所と第三者への提供</h3><p>情報はSupabase（東京リージョン）のサーバーに保存します。通知は、Appleの通知サービス（APNs）を通して届けます。法令に基づく場合を除き、本人の同意なく第三者に提供しません。</p>
     <h3>5. 削除</h3><p>マイページの「アカウントを削除する」から、預かっている情報をすべて削除できます。</p>
     <h3>6. お問い合わせ</h3><p>${c}</p><p class="note">${CONFIG.updated} 制定</p></div>`;
   openSheet(`<div class="sheethead"><span></span><button class="x" data-close>×</button></div>${kind==="terms"?terms:privacy}`);

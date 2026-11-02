@@ -9,6 +9,13 @@
   "plugins": {
     "LocalNotifications": {
       "iconColor": "#1E6C88"
+    },
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
     }
   }
 }
