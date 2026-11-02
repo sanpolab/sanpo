@@ -107,7 +107,9 @@ textarea{resize:vertical;min-height:80px}
 .maphint>*{pointer-events:auto}
 .maphint small{background:rgba(255,253,247,.95);border-radius:14px;padding:5px 12px;font-size:.8rem;box-shadow:0 2px 8px rgba(0,0,0,.15);text-align:center}
 .spin{width:34px;height:34px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:grid;place-items:center;color:#fff;position:relative}
-.spin.park{background:#3F7A4A}.spin.cafe{background:#B07A3B}.spin.vet{background:#2F6FB0}
+.spin.park{background:#3F7A4A}.spin.cafe{background:#B07A3B}.spin.vet{background:#fff;color:#E0453A;width:44px;height:44px;border:3.5px solid #2F6FB0;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+.spin.vet svg{width:26px;height:26px}
+.spin.vet b{position:absolute;top:44px;left:50%;transform:translateX(-50%);white-space:nowrap;background:#2F6FB0;color:#fff;font-size:.68rem;font-weight:700;border-radius:8px;padding:1px 7px;border:1.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .spin i.h24{background:#C8553D;color:#fff}
 .maplayers .chip[data-l="vet"][aria-pressed="true"]{background:#2F6FB0;border-color:#2F6FB0;color:#fff}
 .callbtn{display:block;text-align:center;text-decoration:none}
@@ -946,8 +948,8 @@ async function loadSpots(){
   spots.forEach(x=>{
     const st=stats[x.id];
     const h24 = x.type==="vet" && (/24\/7/.test(x.hours) || x.emergency);
-    const icon=L.divIcon({className:"",html:`<div class="spin ${x.type==="dogpark"?"park":x.type==="vet"?"vet":"cafe"}${x.user?" user":""}">${x.type==="dogpark"?ICON_PARK:x.type==="vet"?ICON_VET:ICON_CAFE}${h24?`<i class="h24">24h</i>`:st?`<i>★${(st.sum/st.n).toFixed(1)}</i>`:""}</div>`,iconSize:[34,34],iconAnchor:[17,17]});
-    L.marker([x.lat,x.lon],{icon}).addTo(spotLayer).on("click",()=>openSpot(x));
+    const icon=L.divIcon({className:"",html:`<div class="spin ${x.type==="dogpark"?"park":x.type==="vet"?"vet":"cafe"}${x.user?" user":""}">${x.type==="dogpark"?ICON_PARK:x.type==="vet"?ICON_VET:ICON_CAFE}${h24?`<i class="h24">24h</i>`:st?`<i>★${(st.sum/st.n).toFixed(1)}</i>`:""}${x.type==="vet"?"<b>動物病院</b>":""}</div>`,iconSize:x.type==="vet"?[44,44]:[34,34],iconAnchor:x.type==="vet"?[22,22]:[17,17]});
+    L.marker([x.lat,x.lon],{icon,zIndexOffset:x.type==="vet"?800:0}).addTo(spotLayer).on("click",()=>openSpot(x));
   });
 }
 async function openSpot(x){
