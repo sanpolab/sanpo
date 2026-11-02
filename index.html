@@ -689,7 +689,7 @@ function walkCard(){
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><div><b id="walkClock">0:00</b><span class="note">おさんぽ中${pet.name?"（"+esc(pet.name)+"）":""}</span></div><b id="walkDist" style="font-size:1.3rem">${km(routeLen(walk.pts))} km</b></div>
       <div class="row2"><button class="btn ghost" id="wPee">おしっこ ${pee||""}</button><button class="btn ghost" id="wPoo">うんち ${poo||""}</button></div>
       <div class="row2"><button class="btn" id="walkEnd">おわった</button><button class="btn ghost" id="walkCancel" style="flex:0 0 auto">取り消す</button></div>
-      <p class="note">画面を消すと位置の記録が止まることがあります。歩いた道は自分にしか見えません。</p></div>`;
+      <p class="note">${NATIVE?"画面を消しても、道のりの記録は続きます。":"画面を消すと位置の記録が止まることがあります。"}歩いた道は自分にしか見えません。</p></div>`;
   }
   return `<div class="row2"><button class="btn" id="walkBtn">おさんぽスタート</button><button class="btn ghost" id="shareBtn" style="flex:0 0 auto">シェア</button></div>`;
 }
