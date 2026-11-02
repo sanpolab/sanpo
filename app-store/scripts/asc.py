@@ -56,21 +56,21 @@ step("年齢制限の質問")
 ard = call("GET", f"/v1/appInfos/{INFO}/ageRatingDeclaration")
 if ard:
     AR = ard["data"]["id"]; cur = ard["data"]["attributes"]
-    want = {}
-    for k, v in cur.items():
-        if k in ("kidsAgeBand", "ageRatingOverride", "koreaAgeRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverrideV2", "developerAgeRatingInfoUrl"): continue
-        if isinstance(v, bool) or k in ("unrestrictedWebAccess", "gamblingAndContests", "gambling", "contests", "lootBox", "seventeenPlus", "advertising", "ageAssurance", "parentalControls", "healthOrWellnessTopics", "messagingAndChat", "userGeneratedContent"):
-            want[k] = False
-        else:
-            want[k] = "NONE"
-    # このアプリにあるもの
-    for k in ("messagingAndChat", "userGeneratedContent"):
-        if k in cur: want[k] = True
-    r = call("PATCH", f"/v1/ageRatingDeclarations/{AR}", {"data": {"type": "ageRatingDeclarations", "id": AR, "attributes": want}})
-    if r is None:
-        # 古い形式しか受け付けないとき
-        base = {k: ("NONE" if not isinstance(cur.get(k), bool) else False) for k in cur if k not in ("kidsAgeBand",)}
-        call("PATCH", f"/v1/ageRatingDeclarations/{AR}", {"data": {"type": "ageRatingDeclarations", "id": AR, "attributes": {k: v for k, v in base.items() if v is not None}}})
+    # はい／いいえで答える質問（このアプリ：交流・投稿・メッセージあり、それ以外はなし）
+    BOOL = {"messagingAndChat": True, "userGeneratedContent": True, "socialMedia": True,
+            "socialMediaAgeRestricted": False, "advertising": False, "gambling": False, "lootBox": False,
+            "parentalControls": False, "ageAssurance": False, "unrestrictedWebAccess": False,
+            "healthOrWellnessTopics": False}
+    # 頻度で答える質問は、すべて「なし」
+    LEVEL = ["alcoholTobaccoOrDrugUseOrReferences", "contests", "gamblingSimulated", "horrorOrFearThemes",
+             "matureOrSuggestiveThemes", "medicalOrTreatmentInformation", "profanityOrCrudeHumor",
+             "sexualContentGraphicAndNudity", "sexualContentOrNudity", "violenceCartoonOrFantasy",
+             "violenceRealistic", "violenceRealisticProlongedGraphicOrSadistic", "gunsOrOtherWeapons"]
+    want = {k: v for k, v in BOOL.items() if k in cur}
+    want.update({k: "NONE" for k in LEVEL if k in cur})
+    call("PATCH", f"/v1/ageRatingDeclarations/{AR}", {"data": {"type": "ageRatingDeclarations", "id": AR, "attributes": want}})
+    unknown = [k for k in cur if k not in want and k not in ("kidsAgeBand", "ageRatingOverride", "koreaAgeRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverrideV2", "developerAgeRatingInfoUrl")]
+    if unknown: print("  未回答の質問:", ", ".join(unknown))
 
 step("バージョン1.0の説明文")
 vers = call("GET", f"/v1/apps/{APP}/appStoreVersions?filter[platform]=IOS&limit=5")["data"]
