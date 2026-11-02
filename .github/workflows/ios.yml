@@ -70,10 +70,13 @@ jobs:
                   return block.replace("buildSettings = {", "buildSettings = {\n\t\t\t\tCODE_SIGN_ENTITLEMENTS = App/App.entitlements;", 1)
               return block
           t = re.sub(r"buildSettings = \{.*?\n\t\t\t\};", fix, t, flags=re.S)
+          # iPhone専用にする（iPad用の画面は作っていないため）
+          t = re.sub(r'TARGETED_DEVICE_FAMILY = "?1,2"?;', 'TARGETED_DEVICE_FAMILY = 1;', t)
           pb.write_text(t); print("entitlements set in", n, "configs")
           assert n >= 2
           PY
           grep -n "RemoteNotifications" ios/App/App/AppDelegate.swift
+          grep -n "TARGETED_DEVICE_FAMILY" ios/App/App.xcodeproj/project.pbxproj
 
       - name: アイコンと説明文を設定
         run: |
