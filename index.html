@@ -1479,8 +1479,10 @@ const PUSH = NATIVE && window.Capacitor.registerPlugin ? window.Capacitor.regist
 let pushReady = false, pushState = "";
 function paintPushState(){ const el=$("#pushState"); if(el) el.textContent=pushState; }
 async function setupPush(force){
-  if(!PUSH || !me) return;
-  if(ls.get("sanpo-push","on")==="off" && !force) return;
+  if(!PUSH){ pushState="この版のアプリは通知に対応していません。TestFlightで最新の版にアップデートしてください"; paintPushState(); return false; }
+  if(!me){ pushState="ログインすると使えます"; paintPushState(); return false; }
+  if(window.Capacitor.isPluginAvailable && !window.Capacitor.isPluginAvailable("PushNotifications")){ pushState="通知の部品が見つかりません（アプリの組み立ての問題）"; paintPushState(); return false; }
+  if(ls.get("sanpo-push","on")==="off" && !force){ pushState="通知はオフです"; paintPushState(); return false; }
   try{
     if(!pushReady){
       pushReady = true;
@@ -1599,7 +1601,7 @@ async function renderMe(){
   $("#logout").onclick = async()=>{ await stopPush(); await sb.auth.signOut(); };
   document.querySelectorAll("#pushChips .chip").forEach(c=>c.onclick=async()=>{
     const v=c.dataset.p;
-    if(v==="on"){ const ok=await setupPush(true); if(!ok) return; } else await stopPush();
+    if(v==="on"){ pushState="確認しています…"; paintPushState(); const ok=await setupPush(true); if(!ok){ toast(pushState||"通知をオンにできませんでした"); return; } } else { await stopPush(); pushState="通知はオフです"; paintPushState(); }
     ls.set("sanpo-push", v);
     document.querySelectorAll("#pushChips .chip").forEach(x=>x.setAttribute("aria-pressed", x===c));
     toast(v==="on" ? "通知をオンにしました" : "通知をオフにしました");
