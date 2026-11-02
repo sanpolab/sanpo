@@ -35,7 +35,7 @@ PRIVACY = "https://sanpolab.github.io/sanpo/#privacy"
 
 step("アプリを探す")
 apps = call("GET", f"/v1/apps?filter[bundleId]={BUNDLE}")
-app = apps["data"][0]; APP = app["id"]; print("  app ok")
+app = apps["data"][0]; APP = app["id"]; print("  app ok", APP)
 
 step("著作権の確認（地図・天気の外部データを使用）")
 call("PATCH", f"/v1/apps/{APP}", {"data": {"type": "apps", "id": APP, "attributes": {"contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT"}}})
