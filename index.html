@@ -451,7 +451,25 @@ function computeWeather(){
 
 /* ================= 朝の通知（アプリ版だけ） ================= */
 const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-const LN = NATIVE ? (window.Capacitor.Plugins||{}).LocalNotifications : null;
+// iPhoneの機能（通知・位置など）を呼び出すつなぎ役。
+// このアプリは部品をまとめる仕組みを使っていないので、Capacitor の基本の呼び出し口（nativePromise / nativeCallback）を直接使う
+function capPlugin(name){
+  const C = window.Capacitor;
+  if(!NATIVE || !C) return null;
+  if(C.registerPlugin) return C.registerPlugin(name);
+  if(!C.nativePromise || !C.nativeCallback) return (C.Plugins||{})[name] || null;
+  const CALLBACK = { BackgroundGeolocation:["addWatcher"] };
+  return new Proxy({}, { get(_, m){
+    if(typeof m!=="string" || m==="then") return undefined;
+    if(m==="addListener") return (eventName, cb)=>{
+      const id = C.nativeCallback(name, "addListener", {eventName}, cb);
+      return Promise.resolve({ remove: ()=>C.nativePromise(name, "removeListener", {callbackId:id, eventName}) });
+    };
+    if((CALLBACK[name]||[]).includes(m)) return (opts, cb)=>Promise.resolve(C.nativeCallback(name, m, opts||{}, cb));
+    return (opts)=>C.nativePromise(name, m, opts||{});
+  }});
+}
+const LN = capPlugin("LocalNotifications");
 async function notifPermission(){
   if(!LN) return false;
   try{ let p = await LN.checkPermissions(); if(p.display!=="granted") p = await LN.requestPermissions(); return p.display==="granted"; }catch(e){ return false; }
@@ -642,7 +660,7 @@ function routeLen(pts){ let d=0; for(let i=1;i<pts.length;i++) d+=hav(pts[i-1],p
 const km = m => (m/1000).toFixed(m<10000?2:1);
 function saveWalk(){ ls.set("sanpo-walk2", walk); }
 // iPhoneアプリでは、画面を閉じても道のりを記録できる仕組みを使う
-const BGEO = NATIVE && window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin("BackgroundGeolocation") : null;
+const BGEO = capPlugin("BackgroundGeolocation");
 let bgWatch = null;
 function addWalkPoint(lat, lon, acc){
   if(!walk) return;
@@ -1475,11 +1493,11 @@ async function loadMe(session){
 }
 
 /* ================= プッシュ通知（iPhoneアプリだけ） ================= */
-const PUSH = NATIVE && window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin("PushNotifications") : null;
+const PUSH = capPlugin("PushNotifications");
 let pushReady = false, pushState = "";
 function paintPushState(){ const el=$("#pushState"); if(el) el.textContent=pushState; }
 async function setupPush(force){
-  if(!PUSH){ pushState="この版のアプリは通知に対応していません。TestFlightで最新の版にアップデートしてください"; paintPushState(); return false; }
+  if(!PUSH){ pushState="通知の部品を呼び出せませんでした（"+["registerPlugin","nativePromise","nativeCallback","Plugins"].map(k=>k+":"+(window.Capacitor&&window.Capacitor[k]?"○":"×")).join(" ")+"）"; paintPushState(); return false; }
   if(!me){ pushState="ログインすると使えます"; paintPushState(); return false; }
   if(window.Capacitor.isPluginAvailable && !window.Capacitor.isPluginAvailable("PushNotifications")){ pushState="通知の部品が見つかりません（アプリの組み立ての問題）"; paintPushState(); return false; }
   if(ls.get("sanpo-push","on")==="off" && !force){ pushState="通知はオフです"; paintPushState(); return false; }
