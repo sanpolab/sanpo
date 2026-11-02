@@ -37,7 +37,11 @@ jobs:
           for f in "$ICONSET"/*.png; do cp app-store/icon-1024.png "$f"; done
           PL=ios/App/App/Info.plist
           set_str () { /usr/libexec/PlistBuddy -c "Delete :$1" "$PL" 2>/dev/null || true; /usr/libexec/PlistBuddy -c "Add :$1 string $2" "$PL"; }
-          set_str NSLocationWhenInUseUsageDescription "現在地の天気から散歩に安全な時間を判定するために使います。正確な位置は保存しません。"
+          set_str NSLocationWhenInUseUsageDescription "現在地の天気から散歩に安全な時間を判定し、おさんぽの記録中は歩いた道のりを記録するために使います。"
+          set_str NSLocationAlwaysAndWhenInUseUsageDescription "おさんぽの記録中に、画面を閉じても歩いた道のりを記録するために使います。記録を終えると位置の取得も止まります。"
+          /usr/libexec/PlistBuddy -c "Delete :UIBackgroundModes" "$PL" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$PL"
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes:0 string location" "$PL"
           set_str NSCameraUsageDescription "うちの子の写真を撮って投稿するために使います。"
           set_str NSPhotoLibraryUsageDescription "うちの子の写真を選んで投稿するために使います。"
           set_str NSPhotoLibraryAddUsageDescription "判定のシェア画像を保存するために使います。"

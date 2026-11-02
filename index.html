@@ -639,19 +639,46 @@ function hav(a,b){ const r=x=>x*Math.PI/180, dLat=r(b[0]-a[0]), dLon=r(b[1]-a[1]
 function routeLen(pts){ let d=0; for(let i=1;i<pts.length;i++) d+=hav(pts[i-1],pts[i]); return d; }
 const km = m => (m/1000).toFixed(m<10000?2:1);
 function saveWalk(){ ls.set("sanpo-walk2", walk); }
-function startTracking(){
-  if(!navigator.geolocation || geoWatch!=null) return;
-  geoWatch = navigator.geolocation.watchPosition(p=>{
-    if(!walk) return;
-    const c=p.coords; if(c.accuracy>40) return;
-    const pt=[+c.latitude.toFixed(5), +c.longitude.toFixed(5)];
-    const last=walk.pts[walk.pts.length-1];
-    if(last && hav(last,pt)<8) return;
-    if(walk.pts.length<3000){ walk.pts.push(pt); saveWalk(); }
-    const el=$("#walkDist"); if(el) el.textContent = km(routeLen(walk.pts))+" km";
-  }, ()=>{}, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+// iPhoneアプリでは、画面を閉じても道のりを記録できる仕組みを使う
+const BGEO = NATIVE && window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin("BackgroundGeolocation") : null;
+let bgWatch = null;
+function addWalkPoint(lat, lon, acc){
+  if(!walk) return;
+  if(acc!=null && acc>40) return;
+  const pt=[+lat.toFixed(5), +lon.toFixed(5)];
+  const last=walk.pts[walk.pts.length-1];
+  if(last && hav(last,pt)<8) return;
+  if(walk.pts.length<3000){ walk.pts.push(pt); saveWalk(); }
+  const el=$("#walkDist"); if(el) el.textContent = km(routeLen(walk.pts))+" km";
 }
-function stopTracking(){ if(geoWatch!=null){ navigator.geolocation.clearWatch(geoWatch); geoWatch=null; } }
+function webTracking(){
+  if(!navigator.geolocation || geoWatch!=null) return;
+  geoWatch = navigator.geolocation.watchPosition(p=>addWalkPoint(p.coords.latitude, p.coords.longitude, p.coords.accuracy), ()=>{}, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+}
+function startTracking(){
+  if(!BGEO) return webTracking();
+  if(bgWatch!=null) return;
+  const tok = {}; bgWatch = tok;
+  BGEO.addWatcher({
+    backgroundTitle:"にくきゅうレーダー",
+    backgroundMessage:"おさんぽの道のりを記録しています",
+    requestPermissions:true, stale:false, distanceFilter:8
+  }, (loc, err)=>{
+    if(err){
+      if(err.code==="NOT_AUTHORIZED"){
+        const sh=openSheet(`<h2>位置情報がオフになっています</h2><p class="note">道のりを記録するには、設定で「にくきゅうレーダー」の位置情報を「このAppの使用中」にしてください。</p><div class="menu"><button id="bgSet">設定をひらく</button><button data-close>あとで</button></div>`);
+        sh.querySelector("#bgSet").onclick=()=>{ closeSheet(); BGEO.openSettings(); };
+      }
+      return;
+    }
+    if(loc) addWalkPoint(loc.latitude, loc.longitude, loc.accuracy);
+  }).then(id=>{ if(bgWatch===tok) bgWatch=id; else BGEO.removeWatcher({id}).catch(()=>{}); })
+    .catch(()=>{ if(bgWatch===tok){ bgWatch=null; webTracking(); } });
+}
+function stopTracking(){
+  if(geoWatch!=null){ navigator.geolocation.clearWatch(geoWatch); geoWatch=null; }
+  if(bgWatch!=null){ const id=bgWatch; bgWatch=null; if(typeof id==="string") BGEO.removeWatcher({id}).catch(()=>{}); }
+}
 if(walk) startTracking();
 function walkCard(){
   if(walk){
@@ -1568,7 +1595,7 @@ function openLegal(kind){
   const privacy = `<h2>プライバシーポリシー</h2><div class="legal">
     <p>${CONFIG.operator}は、「にくきゅうレーダー」で扱う情報を次のとおり取り扱います。</p>
     <h3>1. 預かる情報</h3><ul><li>メールアドレス（ログインのため）</li><li>プロフィール（ニックネーム、うちの子の名前・種類・体の大きさ・年齢、アイコン写真）</li><li>投稿した写真、ひとこと、だいたいのエリア（約1km、または近くの投稿が少ない場合は約5km単位の地域名）</li><li>いいね、コメント、フォロー、ブロック、通報</li><li>散歩の記録（日時と時間）</li></ul>
-    <h3>2. 位置情報</h3><p>正確な現在地は保存しません。現在地は端末の中で天気の取得とエリアの判定にだけ使います。そのため、約100m単位の位置を天気サービス（Open-Meteo）に、約1km単位の位置を地図サービス（OpenStreetMap Nominatim）に送ります。投稿の写真は、撮影場所などの情報を消してから送ります。</p>
+    <h3>2. 位置情報</h3><p>判定のための現在地は保存しません。現在地は端末の中で天気の取得とエリアの判定にだけ使います。「おさんぽスタート」で記録を始めたときだけ、歩いた道のりを記録してあなたのアカウントに保存します。道のりはあなたにしか見えません。iPhoneアプリでは、記録中は画面を閉じても道のりの記録を続け、記録を終えると位置の取得も止まります。迷子・保護の投稿の場所は約100m単位、散歩仲間の地域は約5km単位で保存し、他の利用者に表示します。そのため、約100m単位の位置を天気サービス（Open-Meteo）に、約1km単位の位置を地図サービス（OpenStreetMap Nominatim）に送ります。投稿の写真は、撮影場所などの情報を消してから送ります。</p>
     <h3>3. 公開される情報</h3><p>プロフィール、投稿、エリアの地域名、コメント、いいねの数は、ほかの利用者に公開されます。散歩の記録とブロックの一覧は本人にしか見えません。</p>
     <h3>4. 保存場所と第三者への提供</h3><p>情報はSupabase（東京リージョン）のサーバーに保存します。法令に基づく場合を除き、本人の同意なく第三者に提供しません。</p>
     <h3>5. 削除</h3><p>マイページの「アカウントを削除する」から、預かっている情報をすべて削除できます。</p>
