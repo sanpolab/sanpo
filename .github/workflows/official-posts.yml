@@ -1,0 +1,45 @@
+# 公式アカウントで、最初のお知らせ投稿をする（手動で動かす。同じ文の投稿があればとばす）
+name: Official posts
+
+on: workflow_dispatch
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT: odwucmmcxbdyhncxdwvg
+      URL: https://odwucmmcxbdyhncxdwvg.supabase.co
+      OFFICIAL_EMAIL: nakanakadoukana+official@gmail.com
+    steps:
+      - uses: actions/checkout@v4
+      - name: 投稿する
+        working-directory: supabase/seed/official
+        run: |
+          set -e
+          sql () { curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+            -d "$(jq -n --arg q "$1" '{query:$q}')"; }
+          KEYS=$(curl -sS "https://api.supabase.com/v1/projects/$PROJECT/api-keys?reveal=true" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+          KEY=$(echo "$KEYS" | jq -r '[.[] | select(.name=="service_role" or .type=="secret") | .api_key][0] // empty')
+          [ -n "$KEY" ] || { echo "鍵を取得できませんでした"; exit 1; }
+          echo "::add-mask::$KEY"
+          UID_=$(sql "select id from auth.users where email='$OFFICIAL_EMAIL'" | jq -r '.[0].id // empty')
+          [ -n "$UID_" ] || { echo "公式アカウントが見つかりません"; exit 1; }
+          echo "official account found"
+          N=$(jq length posts.json)
+          for i in $(seq 0 $((N-1))); do
+            FILE=$(jq -r ".[$i].file" posts.json); CAP=$(jq -r ".[$i].caption" posts.json)
+            EXISTS=$(sql "select count(*) as n from public.posts where user_id='$UID_' and caption=\$c\$$CAP\$c\$" | jq -r '.[0].n')
+            if [ "$EXISTS" != "0" ]; then echo "skip $FILE"; continue; fi
+            PATHN="$UID_/official-$FILE"
+            if [[ "$KEY" == sb_secret_* ]]; then AUTH=(-H "apikey: $KEY"); else AUTH=(-H "apikey: $KEY" -H "Authorization: Bearer $KEY"); fi
+            code=$(curl -sS -o /tmp/up.txt -w "%{http_code}" -X POST "$URL/storage/v1/object/photos/$PATHN" "${AUTH[@]}" \
+              -H "Content-Type: image/jpeg" -H "x-upsert: true" --data-binary @"$FILE")
+            echo "upload $FILE -> $code"; [ "$code" = "200" ] || { cat /tmp/up.txt; exit 1; }
+            # 「はじめまして」がいちばん上に来るように、時刻を少しずつずらす
+            MIN=$(( (N-1-i)*0 + i*7 ))
+            sql "insert into public.posts(user_id,image_path,caption,created_at) values ('$UID_','$PATHN',\$c\$$CAP\$c\$, now() - interval '$MIN minutes')"
+            echo
+          done
+          sql "select count(*) as official_posts from public.posts where user_id='$UID_'"
