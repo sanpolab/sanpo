@@ -24,6 +24,8 @@ jobs:
           q "trigger" "select tgname from pg_trigger where tgname='notifications_push'"
           q "pg_net" "select extname from pg_extension where extname='pg_net'"
           q "recent notifications" "select id, kind, created_at, pushed_at from public.notifications order by id desc limit 6"
+          q "security fixes" "select tgname from pg_trigger where tgname in ('messages_guard','chats_guard','follows_guard','messages_first_only')"
+          q "vets constraint" "select pg_get_constraintdef(oid) from pg_constraint where conname='user_spots_spot_type_check'"
           q "pg_net responses" "select id, status_code, left(coalesce(content::text,''),200) as content, error_msg, created from net._http_response order by id desc limit 6"
       - name: 送信プログラムを直接呼んでみる（存在しない番号）
         run: |
