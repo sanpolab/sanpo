@@ -1,0 +1,31 @@
+SCREEN RECORDING (physical iPhone, latest iOS): {VIDEO_URL}
+
+1. PURPOSE AND AUDIENCE
+Nikukyu Radar ("paw-pad radar") helps dog and cat owners in Japan decide when it is safe to take their pet for a walk. Hot asphalt can burn paw pads and heatstroke is common in Japanese summers; in winter, icy roads and de-icing salt are risks. The app estimates road-surface temperature, heat index, wind chill, ice, rain, thunder, PM2.5, dust and UV from weather data and shows, for the next 24 hours, which hours are safe for the user's pet (adjusted for size, age, short-nosed breeds, coat colour and health conditions). Owners can also record walks (route, distance, weight, toilet), share pet photos, and find dog runs, pet-friendly cafes and animal hospitals on a map. Target audience: pet owners in Japan (Japanese UI).
+
+2. HOW TO USE / DEMO ACCOUNT
+- Launch the app. A 3-page intro appears once; tap つぎへ (Next) / はじめる (Start).
+- Home tab (判定): tap 現在地で判定する and allow location to see today's verdict. Location is optional; you can search a place name instead.
+- To use social features, open マイページ (My Page, rightmost tab) and choose パスワードでログイン (log in with password):
+  Email: nakanakadoukana+review@gmail.com / Password: entered in the Sign-In Information field.
+  New users register with their email address and a 6-digit code sent by email.
+- みんな tab: posts feed. Tap the paw icon to like, the speech bubble to comment, the name to open a profile (follow, message, block, report).
+- Reporting and blocking: on any post, tap "…" then この投稿を通報する (report) or この人をブロックする (block). On a profile, use 通報 / ブロック. Reported posts are reviewed by the developer within 24 hours; posts with 3 reports are hidden automatically.
+- Account deletion: マイページ > scroll to the bottom > アカウントを削除する (delete account) > confirm. All data is deleted immediately.
+- マップ tab: toggle うちの子 (posts), ドッグラン・カフェ (dog runs/cafes), 動物病院 (animal hospitals), 迷子・保護 (lost & found pets).
+- Walk recording: Home tab > おさんぽスタート (start walk). Background location is used only between start and おわった (finish) to record the route, which is visible only to the user.
+- No paid content or in-app purchases.
+
+3. EXTERNAL SERVICES
+- Supabase (Tokyo region): user authentication (email code / password), database and photo storage.
+- Open-Meteo: weather forecast and air-quality data (free API, attribution shown).
+- OpenStreetMap: map tiles, Nominatim reverse geocoding (area names), Overpass API (dog runs, cafes, animal hospitals). Attribution shown on the map.
+- Apple Push Notification service: notifications for likes, comments, follows and messages.
+- GitHub Pages: hosts the privacy policy and support pages.
+No AI services, payment processors, analytics or advertising SDKs are used. No tracking.
+
+4. REGIONAL DIFFERENCES
+The app is distributed in Japan only and the interface is Japanese. All features work the same everywhere; weather and map data are available worldwide.
+
+5. REGULATED INDUSTRY / THIRD-PARTY MATERIAL
+Not a regulated industry. The app gives general walking guidance based on weather data and does not provide veterinary diagnosis; it tells users to consult a vet. Map data is from OpenStreetMap (ODbL) with attribution. Character illustrations are original artwork owned by the developer.

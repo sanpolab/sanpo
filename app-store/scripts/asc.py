@@ -96,11 +96,9 @@ if good:
 step("審査用アカウント")
 REVIEW_PASS = os.environ.get("REVIEW_PASSWORD", "")
 rd = call("GET", f"/v1/appStoreVersions/{VER}/appStoreReviewDetail", ok=(200,), quiet=True)
-notes = ("にくきゅうレーダーは、天気と地面の温度から、犬や猫の散歩に安全な時間を判定するアプリです。\n"
-         "判定・地図は位置情報を許可すると現在地で動きます（許可しなくても地名で検索できます）。\n"
-         "投稿・コメント・メッセージなどの交流機能を試すには、マイページの「パスワードでログイン」から下記のデモアカウントでログインしてください。\n"
-         "不適切な投稿やユーザーは、各投稿の「…」やユーザー画面から通報・ブロックでき、運営者が24時間以内に確認・削除します。\n"
-         "位置情報のバックグラウンド利用は、利用者が「おさんぽスタート」を押してから「おわった」を押すまでの間だけ、歩いた道のりの記録に使います。")
+notes = (ROOT / "app-store" / "review-notes.txt").read_text().strip()
+VIDEO = os.environ.get("REVIEW_VIDEO_URL", "").strip()
+notes = notes.replace("{VIDEO_URL}", VIDEO or "(to be added)")
 ra = {"contactFirstName": "EIJI", "contactLastName": "ISHIBASHI", "contactEmail": "nakanakadoukana@gmail.com",
       "demoAccountRequired": True, "demoAccountName": "nakanakadoukana+review@gmail.com", "notes": notes}
 if REVIEW_PASS: ra["demoAccountPassword"] = REVIEW_PASS
