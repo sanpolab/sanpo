@@ -1,6 +1,11 @@
 # バージョン1.0を審査に提出する（手動で動かす）
 name: Submit for review
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      status_only:
+        description: "1 = 状態を見るだけ"
+        default: "0"
 jobs:
   submit:
     runs-on: ubuntu-latest
@@ -14,4 +19,5 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          STATUS_ONLY: ${{ inputs.status_only }}
         run: python app-store/scripts/submit.py

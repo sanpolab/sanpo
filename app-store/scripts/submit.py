@@ -18,6 +18,7 @@ def call(m, p, b=None):
 APP = call("GET", "/v1/apps?filter[bundleId]=io.github.sanpolab.sanpo")["data"][0]["id"]
 ver = next(v for v in call("GET", f"/v1/apps/{APP}/appStoreVersions?filter[platform]=IOS&limit=5")["data"])
 st = ver["attributes"]["appStoreState"]; print("version state:", st)
+if os.environ.get("STATUS_ONLY") == "1": raise SystemExit(0)
 if st in ("WAITING_FOR_REVIEW", "IN_REVIEW", "PENDING_DEVELOPER_RELEASE", "READY_FOR_SALE"):
     print("すでに提出済みです"); raise SystemExit(0)
 def new_sub():
