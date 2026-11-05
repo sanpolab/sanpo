@@ -1,4 +1,4 @@
-SCREEN RECORDING (physical iPhone, latest iOS): {VIDEO_URL}
+SCREEN RECORDING (physical iPhone, latest iOS): https://www.youtube.com/watch?v=6Devjkq9IgY
 
 1. PURPOSE AND AUDIENCE
 Nikukyu Radar ("paw-pad radar") helps dog and cat owners in Japan decide when it is safe to take their pet for a walk. Hot asphalt can burn paw pads and heatstroke is common in Japanese summers; in winter, icy roads and de-icing salt are risks. The app estimates road-surface temperature, heat index, wind chill, ice, rain, thunder, PM2.5, dust and UV from weather data and shows, for the next 24 hours, which hours are safe for the user's pet (adjusted for size, age, short-nosed breeds, coat colour and health conditions). Owners can also record walks (route, distance, weight, toilet), share pet photos, and find dog runs, pet-friendly cafes and animal hospitals on a map. Target audience: pet owners in Japan (Japanese UI).
