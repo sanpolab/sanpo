@@ -20,9 +20,15 @@ ver = next(v for v in call("GET", f"/v1/apps/{APP}/appStoreVersions?filter[platf
 st = ver["attributes"]["appStoreState"]; print("version state:", st)
 if st in ("WAITING_FOR_REVIEW", "IN_REVIEW", "PENDING_DEVELOPER_RELEASE", "READY_FOR_SALE"):
     print("すでに提出済みです"); raise SystemExit(0)
-subs = call("GET", f"/v1/reviewSubmissions?filter[app]={APP}&filter[platform]=IOS&filter[state]=READY_FOR_REVIEW,UNRESOLVED_ISSUES")["data"]
-sub = subs[0] if subs else call("POST", "/v1/reviewSubmissions", {"data": {"type": "reviewSubmissions", "attributes": {"platform": "IOS"},
+def new_sub():
+    return call("POST", "/v1/reviewSubmissions", {"data": {"type": "reviewSubmissions", "attributes": {"platform": "IOS"},
         "relationships": {"app": {"data": {"type": "apps", "id": APP}}}}})["data"]
+# リジェクトされた前回の提出は閉じて、新しく提出し直す
+for old in call("GET", f"/v1/reviewSubmissions?filter[app]={APP}&filter[platform]=IOS&filter[state]=UNRESOLVED_ISSUES")["data"]:
+    print("前回の提出を閉じます"); call("PATCH", f"/v1/reviewSubmissions/{old['id']}", {"data": {"type": "reviewSubmissions", "id": old["id"], "attributes": {"canceled": True}}})
+    time.sleep(5)
+subs = call("GET", f"/v1/reviewSubmissions?filter[app]={APP}&filter[platform]=IOS&filter[state]=READY_FOR_REVIEW")["data"]
+sub = subs[0] if subs else new_sub()
 items = call("GET", f"/v1/reviewSubmissions/{sub['id']}/items")["data"]
 if not items:
     call("POST", "/v1/reviewSubmissionItems", {"data": {"type": "reviewSubmissionItems",
