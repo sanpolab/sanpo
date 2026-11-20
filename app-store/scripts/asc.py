@@ -50,6 +50,12 @@ if ard:
     want = {k: v for k, v in BOOL.items() if k in cur}
     want.update({k: v for k, v in LEVEL.items() if k in cur})
     call("PATCH", f"/v1/ageRatingDeclarations/{AR}", {"data": {"type": "ageRatingDeclarations", "id": AR, "attributes": want}})
+    # 新しく増えた質問（出会い・位置情報の共有）は「なし」。はい/いいえ型か頻度型かわからないので両方試す
+    for k in ("datingAndRelationships", "sharedLocation"):
+        if k in cur:
+            if not call("PATCH", f"/v1/ageRatingDeclarations/{AR}", {"data": {"type": "ageRatingDeclarations", "id": AR, "attributes": {k: False}}}, quiet=True):
+                call("PATCH", f"/v1/ageRatingDeclarations/{AR}", {"data": {"type": "ageRatingDeclarations", "id": AR, "attributes": {k: "NONE"}}})
+            want[k] = True
     unknown = [k for k in cur if k not in want and k not in ("kidsAgeBand", "ageRatingOverride", "koreaAgeRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverrideV2", "developerAgeRatingInfoUrl")]
     if unknown: print("  未回答の質問:", ", ".join(unknown))
 
@@ -78,7 +84,18 @@ step("審査への連絡事項")
 rd = call("GET", f"/v1/appStoreVersions/{VER}/appStoreReviewDetail", ok=(200,), quiet=True)
 ra = {"contactFirstName": "EIJI", "contactLastName": "ISHIBASHI", "contactEmail": os.environ.get("REVIEW_CONTACT_EMAIL", ""),
       "demoAccountRequired": False, "notes": NOTES}
-if os.environ.get("REVIEW_CONTACT_PHONE"): ra["contactPhone"] = os.environ["REVIEW_CONTACT_PHONE"]
+phone = os.environ.get("REVIEW_CONTACT_PHONE", "")
+if not phone:   # にくきゅうレーダーの審査用連絡先と同じ電話番号を使う（画面には出さない）
+    other = call("GET", "/v1/apps?filter[bundleId]=io.github.sanpolab.sanpo", quiet=True)
+    if other and other.get("data"):
+        for v in (call("GET", f"/v1/apps/{other['data'][0]['id']}/appStoreVersions?limit=5", quiet=True) or {}).get("data", []):
+            d = call("GET", f"/v1/appStoreVersions/{v['id']}/appStoreReviewDetail", ok=(200,), quiet=True)
+            if d and d.get("data") and d["data"]["attributes"].get("contactPhone"):
+                phone = d["data"]["attributes"]["contactPhone"]
+                if not ra.get("contactEmail"): ra["contactEmail"] = d["data"]["attributes"].get("contactEmail") or ""
+                break
+if phone: ra["contactPhone"] = phone
+else: print("  ! 審査用の電話番号が見つかりません")
 if not ra["contactEmail"]: del ra["contactEmail"]
 if rd and rd.get("data"):
     call("PATCH", f"/v1/appStoreReviewDetails/{rd['data']['id']}", {"data": {"type": "appStoreReviewDetails", "id": rd["data"]["id"], "attributes": ra}})
