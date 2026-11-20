@@ -1,0 +1,91 @@
+# 打鐘 -JAN-：公開サイト（sanpolab/jan）の中身を iPhone アプリにして、App Store Connect に送る
+name: JAN 2 build
+on:
+  workflow_dispatch:
+  push:
+    branches: [jan-ios]
+    paths: ["run/build.txt"]
+jobs:
+  build:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: ゲーム本体（公開サイト）を取ってくる
+        uses: actions/checkout@v4
+        with:
+          repository: sanpolab/jan
+          path: site
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Xcode を選ぶ
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          [ -z "$X" ] && X=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          sudo xcode-select -s "$X" && xcodebuild -version
+      - name: アプリの中身を用意
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          ls www | head -30
+          test -f www/index.html && test -f www/three.module.min.js
+          npx cap add ios
+          npx cap sync ios
+      - name: iPhone専用・横向き・全画面にする
+        run: |
+          PB=ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' -E 's/TARGETED_DEVICE_FAMILY = "?1,2"?;/TARGETED_DEVICE_FAMILY = 1;/g' "$PB"
+          grep -n "TARGETED_DEVICE_FAMILY" "$PB"
+          PL=ios/App/App/Info.plist
+          del () { /usr/libexec/PlistBuddy -c "Delete :$1" "$PL" 2>/dev/null || true; }
+          set_str () { del "$1"; /usr/libexec/PlistBuddy -c "Add :$1 string $2" "$PL"; }
+          set_bool () { del "$1"; /usr/libexec/PlistBuddy -c "Add :$1 bool $2" "$PL"; }
+          set_str CFBundleDisplayName "打鐘"
+          del UISupportedInterfaceOrientations; del "UISupportedInterfaceOrientations~ipad"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" "$PL"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationLandscapeRight" "$PL"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations:1 string UIInterfaceOrientationLandscapeLeft" "$PL"
+          set_bool UIRequiresFullScreen true
+          set_bool UIStatusBarHidden true
+          set_bool UIViewControllerBasedStatusBarAppearance false
+          set_bool ITSAppUsesNonExemptEncryption false
+          cat "$PL" | head -80
+      - name: アイコン
+        run: |
+          ICONSET=ios/App/App/Assets.xcassets/AppIcon.appiconset
+          for f in "$ICONSET"/*.png; do cp app-store/icon-1024.png "$f"; done
+          ls -la "$ICONSET"
+      - name: Appleの鍵を準備
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "${{ secrets.ASC_KEY_P8 }}" > "$RUNNER_TEMP/keys/AuthKey.p8"
+      - name: 本番用に組み立てる
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            MARKETING_VERSION=1.0.0 CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            archive | tail -30
+          test -d "$RUNNER_TEMP/App.xcarchive"
+          codesign --force --sign - "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app"
+      - name: App Store Connect に送る
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PLIST
+          set -o pipefail
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
+            -authenticationKeyID "${{ secrets.ASC_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.ASC_ISSUER_ID }}" | tail -40

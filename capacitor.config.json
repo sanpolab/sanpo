@@ -1,0 +1,12 @@
+{
+  "appId": "io.github.sanpolab.jan",
+  "appName": "打鐘 -JAN-",
+  "webDir": "www",
+  "backgroundColor": "#04070f",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "allowsLinkPreview": false,
+    "appendUserAgent": "DashoJAN/1.0"
+  }
+}

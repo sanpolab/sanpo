@@ -1,0 +1,23 @@
+# 打鐘 -JAN-：審査に提出する（手動）
+name: JAN 4 submit
+on:
+  workflow_dispatch:
+  push:
+    branches: [jan-ios]
+    paths: ["run/submit.txt"]
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q pyjwt cryptography requests
+      - name: 提出する
+        working-directory: app-store/scripts
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          STATUS_ONLY: "0"
+        run: python submit.py
