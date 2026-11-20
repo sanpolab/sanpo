@@ -1,6 +1,10 @@
 # 打鐘 -JAN-：App Store Connect にストアの情報を入力する（手動）
 name: JAN 3 store
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    branches: [jan-ios]
+    paths: ["run/store.txt"]
 jobs:
   asc:
     runs-on: ubuntu-latest
