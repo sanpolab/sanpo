@@ -19,3 +19,14 @@ for u in users:
 bs = (call("GET", f"/v1/builds?filter[app]={APP}&sort=-uploadedDate&limit=3") or {}).get("data", [])
 for b in bs: print("build", b["attributes"]["version"], b["attributes"]["processingState"])
 if problems: print("\n".join(problems))
+
+# テスターの状態を見て、招待メールを（もう一度）送る
+ts = (call("GET", f"/v1/betaGroups/{G}/betaTesters?limit=50") or {}).get("data", [])
+for t in ts:
+    a = t["attributes"]; em = a.get("email") or ""
+    masked = (em[:2] + "***@" + em.split("@")[-1]) if "@" in em else "?"
+    print("tester", masked, a.get("inviteType"), a.get("state"))
+    r = call("POST", "/v1/betaTesterInvitations", {"data": {"type": "betaTesterInvitations",
+             "relationships": {"app": {"data": {"type": "apps", "id": APP}}, "betaTester": {"data": {"type": "betaTesters", "id": t["id"]}}}}}, ok=(200, 201, 409), quiet=False)
+    print("  招待メール:", "送信" if r is not None else "送れなかった")
+if not ts: print("グループにテスターがいません")
