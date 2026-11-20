@@ -30,7 +30,8 @@ jobs:
           npm run build
           ls www | head -30
           test -f www/index.html && test -f www/three.module.min.js
-          npx cap add ios
+          npx cap add ios || echo 'pod install は対応iOSを上げてからやり直す'
+          test -f ios/App/Podfile
           # アプリ内課金のしくみ（StoreKit 2）は iOS 15 以上が必要
           sed -i '' -E "s/platform :ios, '[0-9.]+'/platform :ios, '15.0'/" ios/App/Podfile
           sed -i '' -E 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/App/App.xcodeproj/project.pbxproj
