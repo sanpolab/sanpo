@@ -1,0 +1,23 @@
+# 打鐘 -JAN-：App Store Connect に課金アイテムを登録する（手動）
+name: JAN 5 iap
+on:
+  workflow_dispatch:
+  push:
+    branches: [jan-ios]
+    paths: ["run/iap.txt"]
+jobs:
+  asc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q pyjwt cryptography requests
+      - name: 課金アイテムを登録
+        working-directory: app-store/scripts
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          REVIEW_CONTACT_EMAIL: ${{ secrets.REVIEW_CONTACT_EMAIL }}
+        run: python iap.py

@@ -66,7 +66,7 @@ jobs:
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-            MARKETING_VERSION=1.0.0 CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            MARKETING_VERSION=$(cat app-store/version.txt) CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             archive | tail -30
           test -d "$RUNNER_TEMP/App.xcarchive"
           codesign --force --sign - "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app"
