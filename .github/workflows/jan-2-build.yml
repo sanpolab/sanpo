@@ -31,6 +31,10 @@ jobs:
           ls www | head -30
           test -f www/index.html && test -f www/three.module.min.js
           npx cap add ios
+          # アプリ内課金のしくみ（StoreKit 2）は iOS 15 以上が必要
+          sed -i '' -E "s/platform :ios, '[0-9.]+'/platform :ios, '15.0'/" ios/App/Podfile
+          sed -i '' -E 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/App/App.xcodeproj/project.pbxproj
+          grep -n "platform :ios" ios/App/Podfile
           npx cap sync ios
       - name: iPhone専用・横向き・全画面にする
         run: |
