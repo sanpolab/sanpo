@@ -29,6 +29,8 @@ jobs:
           npm install --no-audit --no-fund
           npm run build
           ls www | head -30
+          # 1.0 は課金なしで出す（課金はApple承認後の1.1から）
+          if grep -q '^1\.0' app-store/version.txt; then sed -i '' 's#<head>#<head><script>window.__JAN_NOIAP=true</script>#' www/index.html; grep -c __JAN_NOIAP www/index.html; fi
           test -f www/index.html && test -f www/three.module.min.js
           npx cap add ios || echo 'pod install は対応iOSを上げてからやり直す'
           test -f ios/App/Podfile

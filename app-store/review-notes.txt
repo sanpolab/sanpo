@@ -3,5 +3,5 @@ No login is required. The game starts right after entering a player name.
 - Gameplay: a 3D keirin (track cycling) race. Press the pedal button to ride (hold = sprint), use the slider to change lane.
 - Online play (オンライン対戦) and friends use an anonymous ID created automatically on the device (Supabase anonymous sign-in). No email or personal data is collected.
 - There are NO in-app purchases in this version. The gacha uses only coins earned by racing; odds are shown in the gacha screen (排出率).
-- 観戦・予想 (watch & predict) uses free in-game chips only. Chips cannot be bought and cannot be converted to coins, money or items of value.
+- 観戦・予想 (watch & predict) has NO wagering: picking a winner is free and nothing is staked. A correct pick simply awards a fixed number of free in-game chips (used only for a cosmetic gacha). Chips cannot be bought and cannot be converted to coins, money or anything of value. The app therefore contains no simulated gambling, and the age rating has been corrected accordingly.
 - To test online play, two devices can open オンライン対戦 → 部屋番号 with the same number.

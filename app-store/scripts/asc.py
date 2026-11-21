@@ -1,5 +1,5 @@
 """App Store Connect に、打鐘 -JAN- のストア情報をまとめて入力する（何度動かしても同じ結果）"""
-import os, hashlib, pathlib, requests
+import os, time, hashlib, pathlib, requests
 from common import *
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DESC = (ROOT / "app-store" / "description.txt").read_text().strip()
@@ -17,6 +17,12 @@ APP = find_app()
 if not APP: raise SystemExit("App Store Connect にアプリがありません。先に新規作成してください")
 print("  app ok")
 call("PATCH", f"/v1/apps/{APP}", {"data": {"type": "apps", "id": APP, "attributes": {"contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"}}})
+
+step("止まっている審査があれば取り下げる（中身を直して出し直すため）")
+for stt in ("UNRESOLVED_ISSUES", "WAITING_FOR_REVIEW", "READY_FOR_REVIEW"):
+    for old in (call("GET", f"/v1/reviewSubmissions?filter[app]={APP}&filter[platform]=IOS&filter[state]={stt}", quiet=True) or {}).get("data", []):
+        print("  取り下げ:", stt, old["id"])
+        call("PATCH", f"/v1/reviewSubmissions/{old['id']}", {"data": {"type": "reviewSubmissions", "id": old["id"], "attributes": {"canceled": True}}}); time.sleep(8)
 
 step("アプリ情報（サブタイトル・プライバシーポリシー・カテゴリ）")
 infos = call("GET", f"/v1/apps/{APP}/appInfos")["data"]
@@ -37,12 +43,12 @@ step("年齢制限の質問")
 ard = call("GET", f"/v1/appInfos/{INFO}/ageRatingDeclaration")
 if ard:
     AR = ard["data"]["id"]; cur = ard["data"]["attributes"]
-    # ガチャ（ゲーム内コインのみ）＝ルートボックスあり。観戦の1着予想（無料チップ）＝ギャンブルの模擬：まれ/軽度
+    # ガチャ（ゲーム内コインのみ）＝ルートボックスあり。アプリ版の観戦予想は無料で何も賭けない（当たるとチップがもらえるだけ）＝模擬ギャンブルなし
     BOOL = {"messagingAndChat": False, "userGeneratedContent": False, "socialMedia": False,
             "socialMediaAgeRestricted": False, "advertising": False, "gambling": False, "lootBox": True,
             "parentalControls": False, "ageAssurance": False, "unrestrictedWebAccess": False,
             "healthOrWellnessTopics": False}
-    LEVEL = {"alcoholTobaccoOrDrugUseOrReferences": "NONE", "contests": "NONE", "gamblingSimulated": "INFREQUENT_OR_MILD",
+    LEVEL = {"alcoholTobaccoOrDrugUseOrReferences": "NONE", "contests": "NONE", "gamblingSimulated": "NONE",
              "horrorOrFearThemes": "NONE", "matureOrSuggestiveThemes": "NONE", "medicalOrTreatmentInformation": "NONE",
              "profanityOrCrudeHumor": "NONE", "sexualContentGraphicAndNudity": "NONE", "sexualContentOrNudity": "NONE",
              "violenceCartoonOrFantasy": "NONE", "violenceRealistic": "NONE",
@@ -71,7 +77,8 @@ if jav: call("PATCH", f"/v1/appStoreVersionLocalizations/{jav['id']}", {"data": 
 else: jav = call("POST", "/v1/appStoreVersionLocalizations", {"data": {"type": "appStoreVersionLocalizations", "attributes": dict(locale="ja", **va), "relationships": {"appStoreVersion": {"data": {"type": "appStoreVersions", "id": VER}}}}})["data"]
 
 step("いちばん新しいビルドを選ぶ")
-builds = (call("GET", f"/v1/builds?filter[app]={APP}&sort=-uploadedDate&limit=5") or {}).get("data", [])
+VS = (ROOT / "app-store" / "version.txt").read_text().strip()
+builds = (call("GET", f"/v1/builds?filter[app]={APP}&filter[preReleaseVersion.version]={VS}&sort=-uploadedDate&limit=5") or {}).get("data", [])
 good = [b for b in builds if b["attributes"]["processingState"] == "VALID"]
 if good:
     B = good[0]
